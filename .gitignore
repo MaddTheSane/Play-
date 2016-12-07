@@ -31,3 +31,4 @@ ReleaseAot
 *.xcscmblueprint
 xcuserdata
 
+project.xcworkspace/
