@@ -16,10 +16,9 @@
 	NSString*	m_length;
 }
 
--(id)init: (NSString*)path game: (NSString*)game title: (NSString*)title length: (NSString*)length;
--(void)dealloc;
--(NSString*)game;
--(NSString*)title;
--(NSString*)length;
+-(instancetype)initWithPath: (NSString*)path game: (NSString*)game title: (NSString*)title length: (NSString*)length;
+@property (readonly, copy) NSString *game;
+@property (readonly, copy) NSString *title;
+@property (readonly, copy) NSString *length;
 
 @end

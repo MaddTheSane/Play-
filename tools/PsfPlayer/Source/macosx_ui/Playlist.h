@@ -9,16 +9,13 @@
 #import <Cocoa/Cocoa.h>
 #import "PlaylistItem.h"
 
-@interface Playlist : NSObject 
+@interface Playlist : NSObject <NSTableViewDataSource>
 {
 	NSMutableArray*		m_playList;
 }
 
--(Playlist*)init;
--(void)dealloc;
+-(instancetype)init;
 -(void)save;
--(int)numberOfRowsInTableView: (NSTableView*)tableView;
--(id)tableView: (NSTableView*)tableView objectValueForTableColumn:(NSTableColumn*)tableColumn row:(int)row;
 -(void)addItem: (PlaylistItem*)item;
 //-(CVfsManagerBinding*)getBindingAt: (unsigned int)index;
 

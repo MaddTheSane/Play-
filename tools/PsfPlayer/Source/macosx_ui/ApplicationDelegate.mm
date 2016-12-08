@@ -19,20 +19,24 @@ string GetTagValue(const CPsfBase::TagMap& tags, const char* tagName)
 
 -(id)init
 {
-	m_virtualMachine = new CPsfVm();
-	m_virtualMachine->SetSpuHandler(&CSH_OpenAL::HandlerFactory);
-	return [super init];
+	if (self = [super init])
+	{
+		m_virtualMachine = new CPsfVm();
+		m_virtualMachine->SetSpuHandler(&CSH_OpenAL::HandlerFactory);
+	}
+	return self;
 }
 
 -(void)OnFileOpen: (id)sender
 {
 	NSOpenPanel* openPanel = [NSOpenPanel openPanel];
 	NSArray* fileTypes = [NSArray arrayWithObjects:@"psf", @"psf2", @"minipsf", @"minipsf2", nil];
-	if([openPanel runModalForTypes:fileTypes] != NSOKButton)
+	openPanel.allowedFileTypes = fileTypes;
+	if([openPanel runModal] != NSOKButton)
 	{
 		return;
 	}
-	NSString* fileName = [openPanel filename];
+	NSString* fileName = [[openPanel URL] path];
 	[self LoadPsf: fileName];
 }
 
@@ -44,21 +48,18 @@ string GetTagValue(const CPsfBase::TagMap& tags, const char* tagName)
 	{
 		CPsfBase::TagMap tags;
 		CPsfLoader::LoadPsf(*m_virtualMachine, std::string([fileName fileSystemRepresentation]), "", &tags);
-		NSString* game  = [[NSString alloc] initWithUTF8String: GetTagValue(tags, "game").c_str()];
-		NSString* title = [[NSString alloc] initWithUTF8String: GetTagValue(tags, "title").c_str()]; 
-		NSString* length = [[NSString alloc] initWithUTF8String: GetTagValue(tags, "length").c_str()];
-		PlaylistItem* item = [[PlaylistItem alloc] init: fileName game: game title: title length: length];
-		[game release];
-		[title release];
-		[length release];
+		NSString* game  = @(GetTagValue(tags, "game").c_str());
+		NSString* title = @(GetTagValue(tags, "title").c_str());
+		NSString* length = @(GetTagValue(tags, "length").c_str());
+		PlaylistItem* item = [[PlaylistItem alloc] initWithPath: fileName game: game title: title length: length];
 		[m_playlist addItem: item];
 		[m_playListView reloadData];		
 		m_virtualMachine->Resume();
 	}
 	catch(const exception& excep)
 	{
-		NSString* errorMessage = [[NSString alloc] initWithCString:excep.what()];
-		NSRunCriticalAlertPanel(@"PSF load error:", errorMessage, NULL, NULL, NULL);
+		NSString* errorMessage = @(excep.what());
+		NSRunCriticalAlertPanel(@"PSF load error:", @"%@", NULL, NULL, NULL, errorMessage);
 	}
 }
 						

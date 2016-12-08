@@ -10,14 +10,20 @@
 
 
 @implementation PlaylistItem
+@synthesize game = m_game;
+@synthesize title = m_title;
+@synthesize length = m_length;
 
--(id)init: (NSString*)path game: (NSString*)game title: (NSString*)title length: (NSString*)length
+-(id)initWithPath: (NSString*)path game: (NSString*)game title: (NSString*)title length: (NSString*)length
 {
-	m_path = [[NSString alloc] initWithString: path];
-	m_game = [[NSString alloc] initWithString: game];
-	m_title = [[NSString alloc] initWithString: title];
-	m_length = [[NSString alloc] initWithString: length];
-	return [super init];
+	if (self = [super init])
+	{
+		m_path = [path copy];
+		m_game = [game copy];
+		m_title = [title copy];
+		m_length = [length copy];
+	}
+	return self;
 }
 
 -(void)dealloc
@@ -27,21 +33,6 @@
 	[m_title release];
 	[m_length release];
 	[super dealloc];
-}
-
--(NSString*)game
-{
-	return m_game;
-}
-
--(NSString*)title
-{
-	return m_title;
-}
-
--(NSString*)length
-{
-	return m_length;
 }
 
 @end

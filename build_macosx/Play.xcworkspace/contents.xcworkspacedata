@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "group:Play.xcodeproj">
+   </FileRef>
+   <Group
+      location = "container:"
+      name = "Tools">
+      <FileRef
+         location = "group:../tools/PsfPlayer/build_macosx/PsfPlayer.xcodeproj">
+      </FileRef>
+   </Group>
+</Workspace>

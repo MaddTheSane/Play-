@@ -12,8 +12,11 @@
 
 -(Playlist*)init
 {
-	m_playList = [[NSMutableArray alloc] init];
-	return [super init];
+	if (self = [super init])
+	{
+		m_playList = [[NSMutableArray alloc] init];
+	}
+	return self;
 }
 
 -(void)dealloc
@@ -27,12 +30,12 @@
 	
 }
 
--(int)numberOfRowsInTableView: (NSTableView*)tableView
+-(NSInteger)numberOfRowsInTableView: (NSTableView*)tableView
 {
 	return [m_playList count];
 }
 
--(id)tableView: (NSTableView*)tableView objectValueForTableColumn:(NSTableColumn*)tableColumn row:(int)row
+-(id)tableView: (NSTableView*)tableView objectValueForTableColumn:(NSTableColumn*)tableColumn row:(NSInteger)row
 {
 	if(row >= [m_playList count]) return @"";
 	PlaylistItem* item = [m_playList objectAtIndex: row];

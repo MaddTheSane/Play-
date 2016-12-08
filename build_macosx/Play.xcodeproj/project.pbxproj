@@ -1363,9 +1363,9 @@
 			baseConfigurationReference = 70320D1B1A99EAC4001E9C4B /* GeneralSettingsDebug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				INFOPLIST_FILE = ../Source/ui_macosx/Info.plist;
 				INFOPLIST_PREPROCESS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.virtualapplications.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -1377,9 +1377,9 @@
 			baseConfigurationReference = 70320D1C1A99EAC4001E9C4B /* GeneralSettingsRelease.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INFOPLIST_FILE = ../Source/ui_macosx/Info.plist;
 				INFOPLIST_PREPROCESS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.virtualapplications.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
