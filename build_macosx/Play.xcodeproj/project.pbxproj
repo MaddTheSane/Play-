@@ -206,8 +206,8 @@
 
 /* Begin PBXFileReference section */
 		700DF99415DF699000818F3B /* patches.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = patches.xml; path = ../../patches.xml; sourceTree = "<group>"; };
-		700DF99B15DFC0CB00818F3B /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/MainMenu.xib; sourceTree = "<group>"; };
-		700FB57F15E11E1E00C322DE /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/OutputWindow.xib; sourceTree = "<group>"; };
+		700DF99B15DFC0CB00818F3B /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		700FB57F15E11E1E00C322DE /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/OutputWindow.xib; sourceTree = "<group>"; };
 		700FB58115E11FC600C322DE /* OutputWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OutputWindowController.h; sourceTree = "<group>"; };
 		700FB58215E11FC600C322DE /* OutputWindowController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = OutputWindowController.mm; sourceTree = "<group>"; };
 		7011789615E2344F006D1039 /* PS2VM_Preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PS2VM_Preferences.h; sourceTree = "<group>"; };
@@ -233,8 +233,8 @@
 		705B16BC1B097DD00081B3C6 /* BlockProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BlockProvider.h; sourceTree = "<group>"; };
 		705D396A1C43FFAF00D267A6 /* PreferencesWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PreferencesWindowController.h; sourceTree = "<group>"; };
 		705D396B1C43FFAF00D267A6 /* PreferencesWindowController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = PreferencesWindowController.mm; sourceTree = "<group>"; };
-		705D396E1C43FFC900D267A6 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/PreferencesWindow.xib; sourceTree = "<group>"; };
-		705D39711C44A3FF00D267A6 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/VideoSettingsView.xib; sourceTree = "<group>"; };
+		705D396E1C43FFC900D267A6 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/PreferencesWindow.xib; sourceTree = "<group>"; };
+		705D39711C44A3FF00D267A6 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/VideoSettingsView.xib; sourceTree = "<group>"; };
 		705D39731C44A44F00D267A6 /* VideoSettingsViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VideoSettingsViewController.mm; sourceTree = "<group>"; };
 		705D39751C44A47A00D267A6 /* VideoSettingsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoSettingsViewController.h; sourceTree = "<group>"; };
 		705DAEFA1C4882ED00210465 /* ScopedVmPauser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScopedVmPauser.cpp; sourceTree = "<group>"; };
@@ -331,8 +331,8 @@
 		70684A1B151E89E200C9574F /* VfsManagerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VfsManagerViewController.h; sourceTree = "<group>"; };
 		70684A1C151E89E200C9574F /* VfsManagerViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VfsManagerViewController.mm; sourceTree = "<group>"; };
 		70684A28151E8A2C00C9574F /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
-		70684A35151E8B2400C9574F /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		70684A39151E8B2400C9574F /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/VfsManagerView.xib; sourceTree = "<group>"; };
+		70684A35151E8B2400C9574F /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		70684A39151E8B2400C9574F /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/VfsManagerView.xib; sourceTree = "<group>"; };
 		7075D0AE1B6325540010D69C /* DiskUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DiskUtils.cpp; sourceTree = "<group>"; };
 		7075D0AF1B6325540010D69C /* DiskUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DiskUtils.h; sourceTree = "<group>"; };
 		7076A8041C8A7F5300C6B873 /* Iop_Thvpool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Iop_Thvpool.cpp; sourceTree = "<group>"; };
@@ -422,7 +422,7 @@
 		70D9F15F1AFB019F00197BBE /* GSH_OpenGL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GSH_OpenGL.h; path = GSH_OpenGL/GSH_OpenGL.h; sourceTree = "<group>"; };
 		70F0372C15D83D0E006A96F1 /* Iop_Thmsgbx.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Iop_Thmsgbx.cpp; sourceTree = "<group>"; };
 		70F0372D15D83D0E006A96F1 /* Iop_Thmsgbx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Iop_Thmsgbx.h; sourceTree = "<group>"; };
-		70F2AB0A1CBB558B00D0773D /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/AudioSettingsView.xib; sourceTree = "<group>"; };
+		70F2AB0A1CBB558B00D0773D /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/AudioSettingsView.xib; sourceTree = "<group>"; };
 		70F2AB0C1CBB56B600D0773D /* AudioSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AudioSettingsViewController.h; sourceTree = "<group>"; };
 		70F2AB0D1CBB56B600D0773D /* AudioSettingsViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AudioSettingsViewController.mm; sourceTree = "<group>"; };
 		70F2AB0F1CBC544C00D0773D /* PreferenceDefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PreferenceDefs.h; sourceTree = "<group>"; };
@@ -1019,7 +1019,6 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
-				English,
 			);
 			mainGroup = 7E78329C1516710900C04C62;
 			productRefGroup = 7E7832A81516710A00C04C62 /* Products */;
@@ -1251,7 +1250,7 @@
 		700DF99A15DFC0CB00818F3B /* MainMenu.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				700DF99B15DFC0CB00818F3B /* English */,
+				700DF99B15DFC0CB00818F3B /* en */,
 			);
 			name = MainMenu.xib;
 			sourceTree = "<group>";
@@ -1259,7 +1258,7 @@
 		700FB57E15E11E1E00C322DE /* OutputWindow.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				700FB57F15E11E1E00C322DE /* English */,
+				700FB57F15E11E1E00C322DE /* en */,
 			);
 			name = OutputWindow.xib;
 			sourceTree = "<group>";
@@ -1267,7 +1266,7 @@
 		705D396D1C43FFC900D267A6 /* PreferencesWindow.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				705D396E1C43FFC900D267A6 /* English */,
+				705D396E1C43FFC900D267A6 /* en */,
 			);
 			name = PreferencesWindow.xib;
 			sourceTree = "<group>";
@@ -1275,7 +1274,7 @@
 		705D39701C44A3FF00D267A6 /* VideoSettingsView.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				705D39711C44A3FF00D267A6 /* English */,
+				705D39711C44A3FF00D267A6 /* en */,
 			);
 			name = VideoSettingsView.xib;
 			sourceTree = "<group>";
@@ -1283,7 +1282,7 @@
 		70684A34151E8B2400C9574F /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				70684A35151E8B2400C9574F /* English */,
+				70684A35151E8B2400C9574F /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -1291,7 +1290,7 @@
 		70684A38151E8B2400C9574F /* VfsManagerView.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				70684A39151E8B2400C9574F /* English */,
+				70684A39151E8B2400C9574F /* en */,
 			);
 			name = VfsManagerView.xib;
 			sourceTree = "<group>";
@@ -1299,7 +1298,7 @@
 		70F2AB091CBB558B00D0773D /* AudioSettingsView.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				70F2AB0A1CBB558B00D0773D /* English */,
+				70F2AB0A1CBB558B00D0773D /* en */,
 			);
 			name = AudioSettingsView.xib;
 			sourceTree = "<group>";
@@ -1312,6 +1311,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
@@ -1320,6 +1320,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
 			};
 			name = Release;
 		};
