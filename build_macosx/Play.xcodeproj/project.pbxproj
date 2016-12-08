@@ -544,6 +544,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5523CC681DF8F5FF009DE0CD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7E7832AA1516710A00C04C62 /* Dependencies */,
+				7E7832AE1516710A00C04C62 /* AppKit.framework */,
+				7E7832AB1516710A00C04C62 /* Cocoa.framework */,
+				7E7832AF1516710A00C04C62 /* CoreData.framework */,
+				7E7832B01516710A00C04C62 /* Foundation.framework */,
+				70684A28151E8A2C00C9574F /* IOKit.framework */,
+				7068498A151E891200C9574F /* libbz2.dylib */,
+				7068497C151E885200C9574F /* libz.dylib */,
+				70CCA2701CB1E965006F99CA /* OpenAL.framework */,
+				7068497A151E883D00C9574F /* OpenGL.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		70320D181A99EAB0001E9C4B /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -951,7 +968,7 @@
 			children = (
 				70320D181A99EAB0001E9C4B /* Config */,
 				7E4C15701517CBB900357777 /* Source Files */,
-				7E7832AA1516710A00C04C62 /* Dependencies */,
+				5523CC681DF8F5FF009DE0CD /* Frameworks */,
 				7E7832A81516710A00C04C62 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -967,17 +984,8 @@
 		7E7832AA1516710A00C04C62 /* Dependencies */ = {
 			isa = PBXGroup;
 			children = (
-				7E7832AE1516710A00C04C62 /* AppKit.framework */,
-				7E7832AB1516710A00C04C62 /* Cocoa.framework */,
 				7068496E151E880E00C9574F /* CodeGen.xcodeproj */,
-				7E7832AF1516710A00C04C62 /* CoreData.framework */,
-				7E7832B01516710A00C04C62 /* Foundation.framework */,
 				7E4C15761517CDD000357777 /* Framework.xcodeproj */,
-				70684A28151E8A2C00C9574F /* IOKit.framework */,
-				7068498A151E891200C9574F /* libbz2.dylib */,
-				7068497C151E885200C9574F /* libz.dylib */,
-				70CCA2701CB1E965006F99CA /* OpenAL.framework */,
-				7068497A151E883D00C9574F /* OpenGL.framework */,
 			);
 			name = Dependencies;
 			sourceTree = "<group>";

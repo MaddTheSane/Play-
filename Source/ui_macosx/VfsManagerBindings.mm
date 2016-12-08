@@ -6,27 +6,30 @@
 
 -(VfsManagerBindings*)init
 {
-	self = [super init];
-	m_bindings = [[NSMutableArray alloc] init];
+	if (self = [super init])
 	{
-		NSObject* objectToAdd = [[VfsManagerCdrom0Binding alloc] init];
-		[objectToAdd autorelease];
-		[m_bindings addObject: objectToAdd];
-	}
-	{
-		NSObject* objectToAdd = [[VfsManagerDirectoryBinding alloc] init: @"mc0" preferenceName: @"ps2.mc0.directory"];
-		[objectToAdd autorelease];
-		[m_bindings addObject: objectToAdd];
-	}
-	{
-		NSObject* objectToAdd = [[VfsManagerDirectoryBinding alloc] init: @"mc1" preferenceName: @"ps2.mc1.directory"];
-		[objectToAdd autorelease];
-		[m_bindings addObject: objectToAdd];
-	}
-	{
-		NSObject* objectToAdd = [[VfsManagerDirectoryBinding alloc] init: @"host" preferenceName: @"ps2.host.directory"];
-		[objectToAdd autorelease];
-		[m_bindings addObject: objectToAdd];
+		m_bindings = [[NSMutableArray alloc] init];
+		VfsManagerBinding *objectToAdd;
+		{
+			objectToAdd = [[VfsManagerCdrom0Binding alloc] init];
+			[m_bindings addObject: objectToAdd];
+			[objectToAdd release];
+		}
+		{
+			objectToAdd = [[VfsManagerDirectoryBinding alloc] initWithDeviceName: @"mc0" preferenceName: @"ps2.mc0.directory"];
+			[objectToAdd autorelease];
+			[m_bindings addObject: objectToAdd];
+		}
+		{
+			objectToAdd = [[VfsManagerDirectoryBinding alloc] initWithDeviceName: @"mc1" preferenceName: @"ps2.mc1.directory"];
+			[m_bindings addObject: objectToAdd];
+			[objectToAdd release];
+		}
+		{
+			objectToAdd = [[VfsManagerDirectoryBinding alloc] initWithDeviceName: @"host" preferenceName: @"ps2.host.directory"];
+			[m_bindings addObject: objectToAdd];
+			[objectToAdd release];
+		}
 	}
 	return self;
 }
@@ -39,9 +42,7 @@
 
 -(void)save
 {
-	NSEnumerator* bindingIterator = [m_bindings objectEnumerator];
-	VfsManagerBinding* binding = nil;
-	while(binding = [bindingIterator nextObject])
+	for(VfsManagerBinding* binding in m_bindings)
 	{
 		[binding save];
 	}
@@ -82,6 +83,7 @@
 //---------------------------------------------------------------------------
 
 @implementation VfsManagerBinding
+@dynamic deviceName, bindingValue, bindingType;
 
 -(NSString*)deviceName
 {
@@ -117,19 +119,21 @@
 
 @implementation VfsManagerDirectoryBinding
 
--(VfsManagerDirectoryBinding*)init: (NSString*)deviceName preferenceName: (NSString*)preferenceName
+-(VfsManagerDirectoryBinding*)initWithDeviceName: (NSString*)deviceName preferenceName: (NSString*)preferenceName
 {
-	self = [super init];
-	m_deviceName = deviceName;
-	m_preference = preferenceName;
-	const char* preferenceValue = CAppConfig::GetInstance().GetPreferenceString([preferenceName UTF8String]);
-	if(preferenceValue == NULL)
+	if (self = [super init])
 	{
-		m_value = @"";
-	}
-	else
-	{
-		m_value = [[NSString alloc] initWithUTF8String: preferenceValue];
+		m_deviceName = deviceName;
+		m_preference = preferenceName;
+		const char* preferenceValue = CAppConfig::GetInstance().GetPreferenceString([preferenceName UTF8String]);
+		if(preferenceValue == NULL)
+		{
+			m_value = @"";
+		}
+		else
+		{
+			m_value = [[NSString alloc] initWithUTF8String: preferenceValue];
+		}
 	}
 	return self;
 }
@@ -142,20 +146,14 @@
 	[super dealloc];
 }
 
--(NSString*)deviceName
-{
-	return m_deviceName;
-}
+@synthesize deviceName = m_deviceName;
 
 -(NSString*)bindingType
 {
 	return @"Directory";
 }
 
--(NSString*)bindingValue
-{
-	return m_value;
-}
+@synthesize bindingValue = m_value;
 
 -(void)requestModification
 {
@@ -184,15 +182,17 @@
 
 -(VfsManagerCdrom0Binding*)init
 {
-	self = [super init];
-	const char* preferenceValue = CAppConfig::GetInstance().GetPreferenceString(PS2VM_CDROM0PATH);
-	if(preferenceValue == NULL)
+	if (self = [super init])
 	{
-		m_value = @"";
-	}
-	else
-	{
-		m_value = [@(preferenceValue) retain];
+		const char* preferenceValue = CAppConfig::GetInstance().GetPreferenceString(PS2VM_CDROM0PATH);
+		if(preferenceValue == NULL)
+		{
+			m_value = @"";
+		}
+		else
+		{
+			m_value = [@(preferenceValue) retain];
+		}
 	}
 	return self;
 }
@@ -213,10 +213,7 @@
 	return @"Disk Image";
 }
 
--(NSString*)bindingValue
-{
-	return m_value;
-}
+@synthesize bindingValue = m_value;
 
 -(void)requestModification
 {

@@ -5,9 +5,9 @@
 
 }
 
--(NSString*)deviceName;
--(NSString*)bindingType;
--(NSString*)bindingValue;
+@property (readonly, copy) NSString *deviceName;
+@property (readonly, copy) NSString *bindingType;
+@property (readonly, copy) NSString *bindingValue;
 -(void)requestModification;
 -(void)save;
 
@@ -15,10 +15,10 @@
 
 @interface VfsManagerBindings : NSObject <NSTableViewDataSource>
 {
-	NSMutableArray*		m_bindings;
+	NSMutableArray<VfsManagerBinding*>*		m_bindings;
 }
 
--(VfsManagerBindings*)init;
+-(instancetype)init;
 -(void)save;
 -(VfsManagerBinding*)getBindingAt: (NSUInteger)index;
 
@@ -31,10 +31,10 @@
 	NSString*	m_value;
 }
 
--(VfsManagerDirectoryBinding*)init: (NSString*)deviceName preferenceName: (NSString*)preferenceName;
--(NSString*)deviceName;
--(NSString*)bindingType;
--(NSString*)bindingValue;
+-(instancetype)initWithDeviceName: (NSString*)deviceName preferenceName: (NSString*)preferenceName;
+@property (readonly, copy) NSString *deviceName;
+@property (readonly, copy) NSString *bindingType;
+@property (readonly, copy) NSString *bindingValue;
 -(void)requestModification;
 -(void)save;
 
@@ -45,10 +45,10 @@
 	NSString*	m_value;
 }
 
--(VfsManagerCdrom0Binding*)init;
--(NSString*)deviceName;
--(NSString*)bindingType;
--(NSString*)bindingValue;
+-(instancetype)init;
+@property (readonly, copy) NSString *deviceName;
+@property (readonly, copy) NSString *bindingType;
+@property (readonly, copy) NSString *bindingValue;
 -(void)requestModification;
 -(void)save;
 
