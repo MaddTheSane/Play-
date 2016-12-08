@@ -381,10 +381,10 @@
 			isa = PBXGroup;
 			children = (
 				708ED2BD1BBA1F2300C49611 /* Config */,
-				29B97323FDCFA39411CA2CEA /* Frameworks */,
 				70D316FE17C0C0A800CCA3A4 /* MacOSX UI */,
 				7E9000200F059A06008B14D1 /* PsfPlayer Core */,
 				7E90001E0F0599E3008B14D1 /* Purei Core */,
+				29B97323FDCFA39411CA2CEA /* Frameworks */,
 				19C28FACFE9D520D11CA2CBB /* Products */,
 			);
 			name = PsfPlayer;
