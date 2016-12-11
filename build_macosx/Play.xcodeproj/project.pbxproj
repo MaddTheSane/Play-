@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		55931CA31DFD46FB00948721 /* GamePadSettingsViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 55931CA11DFD46FB00948721 /* GamePadSettingsViewController.mm */; };
+		55931CA41DFD46FB00948721 /* GamePadSettingsView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 55931CA21DFD46FB00948721 /* GamePadSettingsView.xib */; };
 		700DF99515DF699000818F3B /* patches.xml in Resources */ = {isa = PBXBuildFile; fileRef = 700DF99415DF699000818F3B /* patches.xml */; };
 		700DF99C15DFC0CB00818F3B /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 700DF99A15DFC0CB00818F3B /* MainMenu.xib */; };
 		700FB58015E11E1E00C322DE /* OutputWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = 700FB57E15E11E1E00C322DE /* OutputWindow.xib */; };
@@ -205,6 +207,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		55931CA01DFD46FB00948721 /* GamePadSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GamePadSettingsViewController.h; sourceTree = "<group>"; };
+		55931CA11DFD46FB00948721 /* GamePadSettingsViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = GamePadSettingsViewController.mm; sourceTree = "<group>"; };
+		55931CA21DFD46FB00948721 /* GamePadSettingsView.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = GamePadSettingsView.xib; sourceTree = "<group>"; };
 		700DF99415DF699000818F3B /* patches.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = patches.xml; path = ../../patches.xml; sourceTree = "<group>"; };
 		700DF99B15DFC0CB00818F3B /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		700FB57F15E11E1E00C322DE /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/OutputWindow.xib; sourceTree = "<group>"; };
@@ -689,6 +694,7 @@
 				70684A38151E8B2400C9574F /* VfsManagerView.xib */,
 				705D39701C44A3FF00D267A6 /* VideoSettingsView.xib */,
 				70F2AB091CBB558B00D0773D /* AudioSettingsView.xib */,
+				55931CA21DFD46FB00948721 /* GamePadSettingsView.xib */,
 				70684A0C151E89E200C9574F /* Globals.cpp */,
 				70684A0D151E89E200C9574F /* Globals.h */,
 				70684A0E151E89E200C9574F /* GSH_OpenGLMacOSX.cpp */,
@@ -738,6 +744,8 @@
 				70684A1C151E89E200C9574F /* VfsManagerViewController.mm */,
 				705D39751C44A47A00D267A6 /* VideoSettingsViewController.h */,
 				705D39731C44A44F00D267A6 /* VideoSettingsViewController.mm */,
+				55931CA01DFD46FB00948721 /* GamePadSettingsViewController.h */,
+				55931CA11DFD46FB00948721 /* GamePadSettingsViewController.mm */,
 			);
 			name = PreferencesWindow;
 			sourceTree = "<group>";
@@ -1073,6 +1081,7 @@
 				70684A3C151E8B2400C9574F /* VfsManagerView.xib in Resources */,
 				705D39721C44A3FF00D267A6 /* VideoSettingsView.xib in Resources */,
 				70C0C84E1ADC97A900492241 /* Images.xcassets in Resources */,
+				55931CA41DFD46FB00948721 /* GamePadSettingsView.xib in Resources */,
 				700DF99515DF699000818F3B /* patches.xml in Resources */,
 				705D396F1C43FFC900D267A6 /* PreferencesWindow.xib in Resources */,
 				70F2AB0B1CBB558B00D0773D /* AudioSettingsView.xib in Resources */,
@@ -1108,6 +1117,7 @@
 				7ECB24201519AC0A00C4BBF8 /* ISO9660.cpp in Sources */,
 				7ECB24211519AC0A00C4BBF8 /* PathTable.cpp in Sources */,
 				7ECB24221519AC0A00C4BBF8 /* PathTableRecord.cpp in Sources */,
+				55931CA31DFD46FB00948721 /* GamePadSettingsViewController.mm in Sources */,
 				7ECB24231519AC0A00C4BBF8 /* VolumeDescriptor.cpp in Sources */,
 				7ECB24241519AC0A00C4BBF8 /* IszImageStream.cpp in Sources */,
 				7ECB24251519AC0A00C4BBF8 /* Log.cpp in Sources */,
