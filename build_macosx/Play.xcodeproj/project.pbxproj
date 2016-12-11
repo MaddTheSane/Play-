@@ -28,8 +28,8 @@
 		705DAEFC1C4882ED00210465 /* ScopedVmPauser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 705DAEFA1C4882ED00210465 /* ScopedVmPauser.cpp */; };
 		70684979151E882000C9574F /* libCodeGen.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 70684976151E880F00C9574F /* libCodeGen.a */; };
 		7068497B151E883D00C9574F /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7068497A151E883D00C9574F /* OpenGL.framework */; };
-		7068497D151E885200C9574F /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7068497C151E885200C9574F /* libz.dylib */; };
-		7068498B151E891200C9574F /* libbz2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7068498A151E891200C9574F /* libbz2.dylib */; };
+		7068497D151E885200C9574F /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7068497C151E885200C9574F /* libz.tbd */; };
+		7068498B151E891200C9574F /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7068498A151E891200C9574F /* libbz2.tbd */; };
 		706849DE151E896900C9574F /* ArgumentIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7068498D151E896900C9574F /* ArgumentIterator.cpp */; };
 		706849DF151E896900C9574F /* DirectoryDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7068498F151E896900C9574F /* DirectoryDevice.cpp */; };
 		706849E0151E896900C9574F /* Iop_Cdvdfsv.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 70684993151E896900C9574F /* Iop_Cdvdfsv.cpp */; };
@@ -244,10 +244,10 @@
 		705D39751C44A47A00D267A6 /* VideoSettingsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VideoSettingsViewController.h; sourceTree = "<group>"; };
 		705DAEFA1C4882ED00210465 /* ScopedVmPauser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScopedVmPauser.cpp; sourceTree = "<group>"; };
 		705DAEFB1C4882ED00210465 /* ScopedVmPauser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScopedVmPauser.h; sourceTree = "<group>"; };
-		7068496E151E880E00C9574F /* CodeGen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CodeGen.xcodeproj; path = ../../CodeGen/build_macosx/CodeGen.xcodeproj; sourceTree = "<group>"; };
+		7068496E151E880E00C9574F /* CodeGen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CodeGen.xcodeproj; path = ../../CodeGen/build_macosx/CodeGen.xcodeproj; sourceTree = SOURCE_ROOT; };
 		7068497A151E883D00C9574F /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
-		7068497C151E885200C9574F /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
-		7068498A151E891200C9574F /* libbz2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbz2.dylib; path = usr/lib/libbz2.dylib; sourceTree = SDKROOT; };
+		7068497C151E885200C9574F /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
+		7068498A151E891200C9574F /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = usr/lib/libbz2.tbd; sourceTree = SDKROOT; };
 		7068498D151E896900C9574F /* ArgumentIterator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ArgumentIterator.cpp; sourceTree = "<group>"; };
 		7068498E151E896900C9574F /* ArgumentIterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ArgumentIterator.h; sourceTree = "<group>"; };
 		7068498F151E896900C9574F /* DirectoryDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DirectoryDevice.cpp; sourceTree = "<group>"; };
@@ -434,7 +434,7 @@
 		7E4C15711517CBD400357777 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7E4C15721517CBD400357777 /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		7E4C15731517CBD400357777 /* Purei_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Purei_Prefix.pch; sourceTree = "<group>"; };
-		7E4C15761517CDD000357777 /* Framework.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = Framework.xcodeproj; path = ../../Framework/build_macosx/Framework.xcodeproj; sourceTree = "<group>"; };
+		7E4C15761517CDD000357777 /* Framework.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = Framework.xcodeproj; path = ../../Framework/build_macosx/Framework.xcodeproj; sourceTree = SOURCE_ROOT; };
 		7E4C15911519A8FE00357777 /* AppConfig.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AppConfig.cpp; sourceTree = "<group>"; };
 		7E4C15921519A8FE00357777 /* AppConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppConfig.h; sourceTree = "<group>"; };
 		7E4C15931519A8FE00357777 /* BasicBlock.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = BasicBlock.cpp; sourceTree = "<group>"; };
@@ -536,8 +536,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				70CCA2711CB1E965006F99CA /* OpenAL.framework in Frameworks */,
-				7068498B151E891200C9574F /* libbz2.dylib in Frameworks */,
-				7068497D151E885200C9574F /* libz.dylib in Frameworks */,
+				7068498B151E891200C9574F /* libbz2.tbd in Frameworks */,
+				7068497D151E885200C9574F /* tbd in Frameworks */,
 				70684979151E882000C9574F /* libCodeGen.a in Frameworks */,
 				7E4C15811517E6F800357777 /* libFramework.a in Frameworks */,
 				7E7832AC1516710A00C04C62 /* Cocoa.framework in Frameworks */,
@@ -558,8 +558,8 @@
 				7E7832AF1516710A00C04C62 /* CoreData.framework */,
 				7E7832B01516710A00C04C62 /* Foundation.framework */,
 				70684A28151E8A2C00C9574F /* IOKit.framework */,
-				7068498A151E891200C9574F /* libbz2.dylib */,
-				7068497C151E885200C9574F /* libz.dylib */,
+				7068498A151E891200C9574F /* libbz2.tbd */,
+				7068497C151E885200C9574F /* libz.tbd */,
 				70CCA2701CB1E965006F99CA /* OpenAL.framework */,
 				7068497A151E883D00C9574F /* OpenGL.framework */,
 			);

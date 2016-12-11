@@ -110,11 +110,25 @@
 		7E2A17690F95554C00D3F99D /* Iop_Timrman.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E2A175A0F95554C00D3F99D /* Iop_Timrman.cpp */; };
 		7E2A176A0F95554C00D3F99D /* IopBios.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E2A175C0F95554C00D3F99D /* IopBios.cpp */; };
 		7E9000790F059BB4008B14D1 /* OpenAL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E9000780F059BB4008B14D1 /* OpenAL.framework */; };
-		7E9000A80F059D4B008B14D1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E9000A70F059D4B008B14D1 /* libz.dylib */; };
+		7E9000A80F059D4B008B14D1 /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E9000A70F059D4B008B14D1 /* libz.tbd */; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		555EB2B71DFDDC430023EDE0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7E90008C0F059C25008B14D1 /* Framework.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = D2AAC045055464E500DB518D;
+			remoteInfo = Framework;
+		};
+		555EB2B91DFDDC430023EDE0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 70D3173717C0C2F700CCA3A4 /* CodeGen.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 7E207AE21507D03500EE8C4F;
+			remoteInfo = CodeGen;
+		};
 		70D3173517C0C23200CCA3A4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7E90008C0F059C25008B14D1 /* Framework.xcodeproj */;
@@ -132,9 +146,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
-		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
-		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5523CC5F1DF8E63F009DE0CD /* Iop_Thvpool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Iop_Thvpool.cpp; sourceTree = "<group>"; };
 		5523CC601DF8E63F009DE0CD /* Iop_Thvpool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Iop_Thvpool.h; sourceTree = "<group>"; };
 		703ABB6A17C0DCA400FC0376 /* InfoPlist.strings */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; path = InfoPlist.strings; sourceTree = "<group>"; };
@@ -184,7 +198,7 @@
 		70D3172317C0C15600CCA3A4 /* SH_OpenAL.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SH_OpenAL.cpp; sourceTree = "<group>"; };
 		70D3172417C0C15600CCA3A4 /* SH_OpenAL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SH_OpenAL.h; sourceTree = "<group>"; };
 		70D3172517C0C15600CCA3A4 /* SoundHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SoundHandler.h; sourceTree = "<group>"; };
-		70D3173717C0C2F700CCA3A4 /* CodeGen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CodeGen.xcodeproj; path = ../../../../CodeGen/build_macosx/CodeGen.xcodeproj; sourceTree = "<group>"; };
+		70D3173717C0C2F700CCA3A4 /* CodeGen.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CodeGen.xcodeproj; path = ../../../../CodeGen/build_macosx/CodeGen.xcodeproj; sourceTree = SOURCE_ROOT; };
 		70D3174617C0C36B00CCA3A4 /* MipsJitter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MipsJitter.cpp; sourceTree = "<group>"; };
 		70D3174717C0C36B00CCA3A4 /* MipsJitter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MipsJitter.h; sourceTree = "<group>"; };
 		70D3174917C0C38E00CCA3A4 /* StructFile.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StructFile.cpp; sourceTree = "<group>"; };
@@ -347,9 +361,9 @@
 		7E2A175B0F95554C00D3F99D /* Iop_Timrman.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Iop_Timrman.h; sourceTree = "<group>"; };
 		7E2A175C0F95554C00D3F99D /* IopBios.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IopBios.cpp; sourceTree = "<group>"; };
 		7E2A175D0F95554C00D3F99D /* IopBios.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IopBios.h; sourceTree = "<group>"; };
-		7E9000780F059BB4008B14D1 /* OpenAL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenAL.framework; path = /System/Library/Frameworks/OpenAL.framework; sourceTree = "<absolute>"; };
+		7E9000780F059BB4008B14D1 /* OpenAL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenAL.framework; path = System/Library/Frameworks/OpenAL.framework; sourceTree = SDKROOT; };
 		7E90008C0F059C25008B14D1 /* Framework.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = Framework.xcodeproj; path = ../../../../Framework/build_macosx/Framework.xcodeproj; sourceTree = SOURCE_ROOT; };
-		7E9000A70F059D4B008B14D1 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		7E9000A70F059D4B008B14D1 /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
 		8D1107320486CEB800E47090 /* PsfPlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PsfPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -362,7 +376,7 @@
 				70D3174517C0C32C00CCA3A4 /* libFramework.a in Frameworks */,
 				8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */,
 				7E9000790F059BB4008B14D1 /* OpenAL.framework in Frameworks */,
-				7E9000A80F059D4B008B14D1 /* libz.dylib in Frameworks */,
+				7E9000A80F059D4B008B14D1 /* libz.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,7 +413,7 @@
 				7E9000780F059BB4008B14D1 /* OpenAL.framework */,
 				13E42FB307B3F0F600E4EEF1 /* CoreData.framework */,
 				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
-				7E9000A70F059D4B008B14D1 /* libz.dylib */,
+				7E9000A70F059D4B008B14D1 /* libz.tbd */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -716,6 +730,9 @@
 			buildRules = (
 			);
 			dependencies = (
+				555EB2B81DFDDC430023EDE0 /* PBXTargetDependency */,
+				555EB2BA1DFDDC430023EDE0 /* PBXTargetDependency */,
+				55931CAA1DFDDB5E00948721 /* PBXTargetDependency */,
 			);
 			name = PsfPlayer;
 			productInstallPath = "$(HOME)/Applications";
@@ -893,6 +910,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		555EB2B81DFDDC430023EDE0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Framework;
+			targetProxy = 555EB2B71DFDDC430023EDE0 /* PBXContainerItemProxy */;
+		};
+		555EB2BA1DFDDC430023EDE0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = CodeGen;
+			targetProxy = 555EB2B91DFDDC430023EDE0 /* PBXContainerItemProxy */;
+		};
+		55931CAA1DFDDB5E00948721 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Framework;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C01FCF4B08A954540054247B /* Debug */ = {
