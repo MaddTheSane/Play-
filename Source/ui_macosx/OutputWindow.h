@@ -5,7 +5,7 @@
 
 }
 
--(bool)acceptsFirstResponder;
+-(BOOL)acceptsFirstResponder;
 -(void)keyDown : (NSEvent*)event;
 
 @end

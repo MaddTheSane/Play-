@@ -3,13 +3,54 @@
 #import "VideoSettingsViewController.h"
 #import "AudioSettingsViewController.h"
 #import "VfsManagerViewController.h"
+#import "GamePadSettingsViewController.h"
 #include "../AppConfig.h"
 
 @implementation PreferencesWindowController
+{
+	VideoSettingsViewController *vidSett;
+	AudioSettingsViewController *audSett;
+	VfsManagerViewController *vfsMan;
+	GamePadSettingsViewController *gamPad;
+}
 
 @synthesize currentViewController;
 
 static PreferencesWindowController* g_sharedInstance = nil;
+
+- (instancetype)initWithWindow:(nullable NSWindow *)window
+{
+	if (self = [super initWithWindow:window])
+	{
+		vidSett = [[VideoSettingsViewController alloc] init];
+		audSett = [[AudioSettingsViewController alloc] init];
+		vfsMan = [[VfsManagerViewController alloc] init];
+		gamPad = [[GamePadSettingsViewController alloc] init];
+	}
+	return self;
+}
+
+- (nullable instancetype)initWithCoder:(NSCoder *)coder
+{
+	if (self = [super initWithCoder:coder])
+	{
+		vidSett = [[VideoSettingsViewController alloc] init];
+		audSett = [[AudioSettingsViewController alloc] init];
+		vfsMan = [[VfsManagerViewController alloc] init];
+		gamPad = [[GamePadSettingsViewController alloc] init];
+	}
+	return self;
+}
+
+- (void)dealloc
+{
+	[vidSett release];
+	[audSett release];
+	[vfsMan release];
+	[gamPad release];
+	
+	[super dealloc];
+}
 
 +(PreferencesWindowController*)defaultController
 {
@@ -47,13 +88,16 @@ static PreferencesWindowController* g_sharedInstance = nil;
 	switch(item.tag)
 	{
 	case 0:
-		currentViewController = [[VideoSettingsViewController alloc] init];
+		currentViewController = vidSett;
 		break;
 	case 1:
-		currentViewController = [[AudioSettingsViewController alloc] init];
+		currentViewController = audSett;
 		break;
 	case 2:
-		currentViewController = [[VfsManagerViewController alloc] init];
+		currentViewController = vfsMan;
+		break;
+	case 3:
+		currentViewController = gamPad;
 		break;
 	default:
 		assert(false);

@@ -2,7 +2,7 @@
 
 @implementation OutputWindow
 
--(bool)acceptsFirstResponder
+-(BOOL)acceptsFirstResponder
 {
 	return true;
 }
