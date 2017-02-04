@@ -110,6 +110,7 @@ private:
 		void								ITOF4();
 		void								FTOI4();
 		void								ABS();
+		void								MSUBAq();
 		void								MADDA();
 		void								MSUBA();
 
@@ -256,7 +257,6 @@ private:
 		static void							ReflOpAffWrPRdFs(VUShared::VUINSTRUCTION*, CMIPS*, uint32, uint32, VUShared::OPERANDSET&);
 		static void							ReflOpAffWrVi1Bv(VUShared::VUINSTRUCTION*, CMIPS*, uint32, uint32, VUShared::OPERANDSET&);
 
-		void								BuildStatusInIT();
 		void								GenerateEATAN();
 
 		//General

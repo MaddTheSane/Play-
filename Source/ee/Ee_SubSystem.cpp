@@ -39,6 +39,7 @@ CSubSystem::CSubSystem(uint8* iopRam, CIopBios& iopBios)
 , m_gif(m_gs, m_ram, m_spr)
 , m_sif(m_dmac, m_ram, iopRam)
 , m_intc(m_dmac, m_gs)
+, m_ipu(m_intc)
 , m_timer(m_intc)
 , m_COP_SCU(MIPS_REGSIZE_64)
 , m_COP_FPU(MIPS_REGSIZE_64)
@@ -218,9 +219,7 @@ int CSubSystem::ExecuteCpu(int quota)
 		if(!m_vpu0->IsVuRunning())
 		{
 			//callMs mode over
-			memcpy(&m_EE.m_State.nCOP2,		&m_VU0.m_State.nCOP2,	sizeof(m_EE.m_State.nCOP2));
-			memcpy(&m_EE.m_State.nCOP2A,	&m_VU0.m_State.nCOP2A,	sizeof(m_EE.m_State.nCOP2A));
-			memcpy(&m_EE.m_State.nCOP2VI,	&m_VU0.m_State.nCOP2VI, sizeof(m_EE.m_State.nCOP2VI));
+			CopyVuState(m_EE, m_VU0);
 			m_EE.m_State.callMsEnabled = 0;
 		}
 	}
@@ -241,10 +240,7 @@ int CSubSystem::ExecuteCpu(int quota)
 			{
 				//We are in callMs mode
 				assert(!m_vpu0->IsVuRunning());
-				//Copy the COP2 state to VPU0
-				memcpy(&m_VU0.m_State.nCOP2,	&m_EE.m_State.nCOP2,	sizeof(m_VU0.m_State.nCOP2));
-				memcpy(&m_VU0.m_State.nCOP2A,	&m_EE.m_State.nCOP2A,	sizeof(m_VU0.m_State.nCOP2A));
-				memcpy(&m_VU0.m_State.nCOP2VI,	&m_EE.m_State.nCOP2VI,	sizeof(m_VU0.m_State.nCOP2VI));
+				CopyVuState(m_VU0, m_EE);
 				m_vpu0->ExecuteMicroProgram(m_EE.m_State.callMsAddr);
 				m_EE.m_State.nHasException = MIPS_EXCEPTION_NONE;
 			}
@@ -512,7 +508,8 @@ uint32 CSubSystem::IOPortWriteHandler(uint32 nAddress, uint32 nData)
 	}
 	else if(nAddress == CVpu::VU_CMSAR1)
 	{
-		if(!m_vpu1->IsVuRunning())
+		bool validAddress = (nData & 0x7) == 0;
+		if(!m_vpu1->IsVuRunning() && validAddress)
 		{
 			m_vpu1->ExecuteMicroProgram(nData);
 		}
@@ -613,6 +610,20 @@ uint32 CSubSystem::Vu1IoPortWriteHandler(uint32 address, uint32 value)
 		break;
 	}
 	return 0;
+}
+
+void CSubSystem::CopyVuState(CMIPS& dst, const CMIPS& src)
+{
+	memcpy(&dst.m_State.nCOP2,   &src.m_State.nCOP2,   sizeof(dst.m_State.nCOP2));
+	memcpy(&dst.m_State.nCOP2A,  &src.m_State.nCOP2A,  sizeof(dst.m_State.nCOP2A));
+	memcpy(&dst.m_State.nCOP2VI, &src.m_State.nCOP2VI, sizeof(dst.m_State.nCOP2VI));
+	dst.m_State.nCOP2SF = src.m_State.nCOP2SF;
+	dst.m_State.nCOP2CF = src.m_State.nCOP2CF;
+	for(unsigned int i = 0; i < FLAG_PIPELINE_SLOTS; i++)
+	{
+		dst.m_State.pipeClip.pipeTimes[i] = 0;
+		dst.m_State.pipeClip.values[i] = src.m_State.nCOP2CF;
+	}
 }
 
 void CSubSystem::ExecuteIpu()

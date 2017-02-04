@@ -8,7 +8,7 @@ class CRegViewVU : public CRegViewPage, public boost::signals2::trackable
 {
 public:
 									CRegViewVU(HWND, const RECT&, CVirtualMachine&, CMIPS*);
-	virtual							~CRegViewVU();
+	virtual							~CRegViewVU() = default;
 
 	void							Update() override;
 
@@ -25,6 +25,7 @@ private:
 	};
 
 	std::string						GetDisplayText();
+	static std::string				PrintPipeline(const char*, const FLAG_PIPELINE&);
 
 	CMIPS*							m_ctx = nullptr;
 	VIEWMODE						m_viewMode = VIEWMODE_SINGLE;

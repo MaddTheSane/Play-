@@ -21,11 +21,6 @@ CPsfSubSystem::CPsfSubSystem(bool ps2Mode)
 	Reset();
 }
 
-CPsfSubSystem::~CPsfSubSystem()
-{
-
-}
-
 void CPsfSubSystem::Reset()
 {
 	m_iop.Reset();
@@ -37,6 +32,11 @@ void CPsfSubSystem::Reset()
 CMIPS& CPsfSubSystem::GetCpu()
 {
 	return m_iop.m_cpu;
+}
+
+CMipsExecutor& CPsfSubSystem::GetCpuExecutor()
+{
+	return m_iop.m_executor;
 }
 
 CSpuBase& CPsfSubSystem::GetSpuCore(unsigned int coreId)

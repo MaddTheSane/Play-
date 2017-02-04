@@ -1,5 +1,4 @@
-#ifndef _IOPPSFSUBSYSTEM_H_
-#define _IOPPSFSUBSYSTEM_H_
+#pragma once
 
 #include "iop/Iop_SubSystem.h"
 #include "PsfVmSubSystem.h"
@@ -10,20 +9,21 @@ namespace Iop
 	{
 	public:
 											CPsfSubSystem(bool ps2Mode);
-		virtual								~CPsfSubSystem();
+		virtual								~CPsfSubSystem() = default;
 
 		void								Reset() override;
 		CMIPS&								GetCpu() override;
+		CMipsExecutor&						GetCpuExecutor() override;
 		uint8*								GetRam() override;
 		uint8*								GetSpr() override;
 		Iop::CSpuBase&						GetSpuCore(unsigned int) override;
 
 #ifdef DEBUGGER_INCLUDED
-		virtual bool						MustBreak();
-		virtual void						DisableBreakpointsOnce();
-		virtual CBiosDebugInfoProvider*		GetBiosDebugInfoProvider();
-		virtual void						LoadDebugTags(Framework::Xml::CNode*);
-		virtual void						SaveDebugTags(Framework::Xml::CNode*);
+		bool								MustBreak() override;
+		void								DisableBreakpointsOnce() override;
+		CBiosDebugInfoProvider*				GetBiosDebugInfoProvider() override;
+		void								LoadDebugTags(Framework::Xml::CNode*) override;
+		void								SaveDebugTags(Framework::Xml::CNode*) override;
 #endif
 
 		void								SetBios(const Iop::BiosBasePtr&);
@@ -50,5 +50,3 @@ namespace Iop
 
 	typedef std::shared_ptr<CPsfSubSystem> PsfSubSystemPtr;
 }
-
-#endif

@@ -10,7 +10,10 @@ using namespace Iop;
 
 #define PREF_IOP_FILEIO_STDLOGGING ("iop.fileio.stdlogging")
 
-CIoman::CIoman(uint8* ram) 
+#define FUNCTION_ADDDRV    "AddDrv"
+#define FUNCTION_DELDRV    "DelDrv"
+
+CIoman::CIoman(uint8* ram)
 : m_ram(ram)
 , m_nextFileHandle(3)
 {
@@ -72,6 +75,12 @@ std::string CIoman::GetFunctionName(unsigned int functionId) const
 	case 16:
 		return "getstat";
 		break;
+	case 20:
+		return FUNCTION_ADDDRV;
+		break;
+	case 21:
+		return FUNCTION_DELDRV;
+		break;
 	default:
 		return "unknown";
 		break;
@@ -105,13 +114,13 @@ uint32 CIoman::Open(uint32 flags, const char* path)
 		}
 		std::string deviceName(fullPath.begin(), fullPath.begin() + position);
 		std::string devicePath(fullPath.begin() + position + 1, fullPath.end());
-		DeviceMapType::iterator device(m_devices.find(deviceName));
-		if(device == m_devices.end())
+		auto deviceIterator = m_devices.find(deviceName);
+		if(deviceIterator == m_devices.end())
 		{
 			throw std::runtime_error("Device not found.");
 		}
-		Framework::CStream* stream = device->second->GetFile(flags, devicePath.c_str());
-		if(stream == NULL)
+		auto stream = deviceIterator->second->GetFile(flags, devicePath.c_str());
+		if(!stream)
 		{
 			throw std::runtime_error("File not found.");
 		}
@@ -139,7 +148,8 @@ uint32 CIoman::Close(uint32 handle)
 		}
 		delete file->second;
 		m_files.erase(file);
-		result = 0;
+		//Returns handle instead of 0 (needed by Naruto: Ultimate Ninja 2)
+		result = handle;
 	}
 	catch(const std::exception& except)
 	{
@@ -241,15 +251,15 @@ uint32 CIoman::GetStat(const char* path, STAT* stat)
 
 uint32 CIoman::AddDrv(uint32 drvPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, "AddDrv(drvPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_ADDDRV "(drvPtr = 0x%0.8X);\r\n",
 		drvPtr);
 	return -1;
 }
 
-uint32 CIoman::DelDrv(uint32 drvPtr)
+uint32 CIoman::DelDrv(uint32 drvNamePtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, "DelDrv(drvPtr = 0x%0.8X);\r\n",
-		drvPtr);
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_DELDRV "(drvNamePtr = %s);\r\n",
+		PrintStringParameter(m_ram, drvNamePtr).c_str());
 	return -1;
 }
 

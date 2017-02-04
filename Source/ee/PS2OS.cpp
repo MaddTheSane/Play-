@@ -128,6 +128,7 @@
 #define SYSCALL_NAME_GSGETIMR				"osGsGetIMR"
 #define SYSCALL_NAME_GSPUTIMR				"osGsPutIMR"
 #define SYSCALL_NAME_SETVSYNCFLAG			"osSetVSyncFlag"
+#define SYSCALL_NAME_SETSYSCALL				"osSetSyscall"
 #define SYSCALL_NAME_SIFDMASTAT				"osSifDmaStat"
 #define SYSCALL_NAME_SIFSETDMA				"osSifSetDma"
 #define SYSCALL_NAME_SIFSETDCHAIN			"osSifSetDChain"
@@ -190,6 +191,7 @@ const CPS2OS::SYSCALL_NAME	CPS2OS::g_syscallNames[] =
 	{	0x0070,		SYSCALL_NAME_GSGETIMR				},
 	{	0x0071,		SYSCALL_NAME_GSPUTIMR				},
 	{	0x0073,		SYSCALL_NAME_SETVSYNCFLAG			},
+	{	0x0074,		SYSCALL_NAME_SETSYSCALL				},
 	{	0x0076,		SYSCALL_NAME_SIFDMASTAT				},
 	{	0x0077,		SYSCALL_NAME_SIFSETDMA				},
 	{	0x0078,		SYSCALL_NAME_SIFSETDCHAIN			},
@@ -743,6 +745,7 @@ void CPS2OS::AssembleInterruptHandler()
 	generateIntHandler(assembler, CINTC::INTC_LINE_VBLANK_START);
 	generateIntHandler(assembler, CINTC::INTC_LINE_VBLANK_END);
 	generateIntHandler(assembler, CINTC::INTC_LINE_VIF1);
+	generateIntHandler(assembler, CINTC::INTC_LINE_IPU);
 	generateIntHandler(assembler, CINTC::INTC_LINE_TIMER0);
 	generateIntHandler(assembler, CINTC::INTC_LINE_TIMER1);
 	generateIntHandler(assembler, CINTC::INTC_LINE_TIMER2);
@@ -1217,6 +1220,51 @@ void CPS2OS::CheckLivingThreads()
 	{
 		OnRequestExit();
 	}
+}
+
+bool CPS2OS::SemaReleaseSingleThread(uint32 semaId, bool cancelled)
+{
+	//Releases a single thread from a semaphore's queue
+	//TODO: Implement an actual queue
+
+	auto sema = m_semaphores[semaId];
+	assert(sema);
+	assert(sema->waitCount != 0);
+
+	uint32 returnValue = cancelled ? -1 : semaId;
+	bool changed = false;
+	for(auto threadIterator = std::begin(m_threads); threadIterator != std::end(m_threads); threadIterator++)
+	{
+		auto thread = *threadIterator;
+		if(!thread) continue;
+		if((thread->status != THREAD_WAITING) && (thread->status != THREAD_SUSPENDED_WAITING)) continue;
+		if(thread->semaWait != semaId) continue;
+
+		switch(thread->status)
+		{
+		case THREAD_WAITING:
+			thread->status = THREAD_RUNNING;
+			LinkThread(threadIterator);
+			break;
+		case THREAD_SUSPENDED_WAITING:
+			thread->status = THREAD_SUSPENDED;
+			break;
+		default:
+			assert(0);
+			break;
+		}
+
+		auto context = reinterpret_cast<THREADCONTEXT*>(GetStructPtr(thread->contextPtr));
+		context->gpr[SC_RETURN].nD0 = static_cast<int32>(returnValue);
+
+		sema->waitCount--;
+		changed = true;
+		break;
+	}
+
+	//Something went wrong if nothing changed
+	assert(changed);
+	return changed;
 }
 
 void CPS2OS::CreateIdleThread()
@@ -1726,7 +1774,7 @@ void CPS2OS::sc_StartThread()
 	thread->status = THREAD_RUNNING;
 	thread->epc    = thread->threadProc;
 
-	auto context = reinterpret_cast<THREADCONTEXT*>(&m_ram[thread->contextPtr]);
+	auto context = reinterpret_cast<THREADCONTEXT*>(GetStructPtr(thread->contextPtr));
 	context->gpr[CMIPS::A0].nV0 = arg;
 
 	m_ee.m_State.nGPR[SC_RETURN].nD0 = static_cast<int32>(id);
@@ -2270,19 +2318,25 @@ void CPS2OS::sc_DeleteSema()
 	auto sema = m_semaphores[id];
 	if(sema == nullptr)
 	{
-		m_ee.m_State.nGPR[SC_RETURN].nD0 = -1;
+		m_ee.m_State.nGPR[SC_RETURN].nD0 = static_cast<int32>(-1);
 		return;
 	}
 
-	//Check if any threads are waiting for this?
+	//Set return value now because we might reschedule
+	m_ee.m_State.nGPR[SC_RETURN].nD0 = static_cast<int32>(id);
+
+	//Release all threads waiting for this semaphore
 	if(sema->waitCount != 0)
 	{
-		assert(0);
+		while(sema->waitCount != 0)
+		{
+			bool succeeded = SemaReleaseSingleThread(id, true);
+			if(!succeeded) break;
+		}
+		ThreadShakeAndBake();
 	}
 
 	m_semaphores.Free(id);
-
-	m_ee.m_State.nGPR[SC_RETURN].nD0 = id;
 }
 
 //42
@@ -2295,44 +2349,18 @@ void CPS2OS::sc_SignalSema()
 	auto sema = m_semaphores[id];
 	if(sema == nullptr)
 	{
-		m_ee.m_State.nGPR[SC_RETURN].nD0 = -1;
+		m_ee.m_State.nGPR[SC_RETURN].nD0 = static_cast<int32>(-1);
 		return;
 	}
 	
+	//TODO: Check maximum value
+
+	//Set return value here because we might reschedule
+	m_ee.m_State.nGPR[SC_RETURN].nD0 = static_cast<int32>(id);
+
 	if(sema->waitCount != 0)
 	{
-		//Unsleep all threads if they were waiting
-		for(auto threadIterator = std::begin(m_threads); threadIterator != std::end(m_threads); threadIterator++)
-		{
-			auto thread = *threadIterator;
-			if(!thread) continue;
-			if((thread->status != THREAD_WAITING) && (thread->status != THREAD_SUSPENDED_WAITING)) continue;
-			if(thread->semaWait != id) continue;
-
-			switch(thread->status)
-			{
-			case THREAD_WAITING:
-				thread->status = THREAD_RUNNING;
-				LinkThread(threadIterator);
-				break;
-			case THREAD_SUSPENDED_WAITING:
-				thread->status = THREAD_SUSPENDED;
-				break;
-			default:
-				assert(0);
-				break;
-			}
-			sema->waitCount--;
-
-			if(sema->waitCount == 0)
-			{
-				break;
-			}
-		}
-
-		m_ee.m_State.nGPR[SC_RETURN].nV[0] = id;
-		m_ee.m_State.nGPR[SC_RETURN].nV[1] = 0;
-
+		SemaReleaseSingleThread(id, false);
 		if(!isInt)
 		{
 			ThreadShakeAndBake();
@@ -2342,8 +2370,6 @@ void CPS2OS::sc_SignalSema()
 	{
 		sema->count++;
 	}
-
-	m_ee.m_State.nGPR[SC_RETURN].nD0 = id;
 }
 
 //44
@@ -2384,8 +2410,8 @@ void CPS2OS::sc_WaitSema()
 
 		auto thread = m_threads[m_currentThreadId];
 		assert(thread->status == THREAD_RUNNING);
-		thread->status		= THREAD_WAITING;
-		thread->semaWait	= id;
+		thread->status   = THREAD_WAITING;
+		thread->semaWait = id;
 
 		UnlinkThread(m_currentThreadId);
 		ThreadShakeAndBake();
@@ -2560,7 +2586,7 @@ void CPS2OS::sc_SifSetDma()
 {
 	m_lastSifDmaTime = m_ee.m_State.nCOP0[CCOP_SCU::COUNT];
 
-	auto xfer = reinterpret_cast<SIFDMAREG*>(GetStructPtr(m_ee.m_State.nGPR[SC_PARAM0].nV0));
+	auto xfers = reinterpret_cast<const SIFDMAREG*>(GetStructPtr(m_ee.m_State.nGPR[SC_PARAM0].nV0));
 	uint32 count = m_ee.m_State.nGPR[SC_PARAM1].nV[0];
 
 	//Returns count
@@ -2569,12 +2595,16 @@ void CPS2OS::sc_SifSetDma()
 
 	for(unsigned int i = 0; i < count; i++)
 	{
-		uint32 size = (xfer[i].size + 0x0F) / 0x10;
+		const auto& xfer = xfers[i];
 
-		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_MADR,	xfer[i].srcAddr);
-		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_TADR,	xfer[i].dstAddr);
-		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_QWC,	size);
-		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_CHCR,	0x00000100);
+		uint32 size = (xfer.size + 0x0F) / 0x10;
+		assert((xfer.srcAddr & 0x0F) == 0);
+		assert((xfer.dstAddr & 0x03) == 0);
+
+		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_MADR, xfer.srcAddr);
+		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_TADR, xfer.dstAddr);
+		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_QWC,  size);
+		m_ee.m_pMemoryMap->SetWord(CDMAC::D6_CHCR, CDMAC::CHCR_BIT::CHCR_STR);
 	}
 }
 
@@ -3015,7 +3045,7 @@ std::string CPS2OS::GetSysCallDescription(uint8 function)
 			m_ee.m_State.nGPR[SC_PARAM1].nV[0]);
 		break;
 	case 0x74:
-		sprintf(description, "SetSyscall(num = 0x%0.2X, address = 0x%0.8X);", \
+		sprintf(description, SYSCALL_NAME_SETSYSCALL "(num = 0x%0.2X, address = 0x%0.8X);", \
 			m_ee.m_State.nGPR[SC_PARAM0].nV[0], \
 			m_ee.m_State.nGPR[SC_PARAM1].nV[0]);
 		break;

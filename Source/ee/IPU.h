@@ -9,12 +9,14 @@
 #include "../MailBox.h"
 #include "Convertible.h"
 
+class CINTC;
+
 class CIPU
 {
 public:
 	typedef std::function<uint32 (const void*, uint32)> Dma3ReceiveHandler;
 
-						CIPU();
+						CIPU(CINTC&);
 	virtual				~CIPU();
 
 	enum REGISTER
@@ -59,6 +61,13 @@ private:
 		IPU_CMD_CSC,
 		IPU_CMD_PACK,
 		IPU_CMD_SETTH,
+	};
+
+	struct FIFO_STATE
+	{
+		uint32 bp = 0;
+		uint32 ifc = 0;
+		uint32 fp = 0;
 	};
 
 	struct CMD_IDEC : public convertible<uint32>
@@ -152,8 +161,8 @@ private:
 		bool				TryPeekBits_MSBF(uint8, uint32&) override;
 
 		void				SetBitPosition(unsigned int);
-		unsigned int		GetSize();
-		unsigned int		GetAvailableBits();
+		unsigned int		GetSize() const;
+		unsigned int		GetAvailableBits() const;
 		void				Reset();
 
 		enum BUFFERSIZE
@@ -231,6 +240,8 @@ private:
 			STATE_CSC,
 			STATE_DONE
 		};
+
+		void					ConvertRawBlock();
 
 		CMD_IDEC				m_command = make_convertible<CMD_IDEC>(0);
 		STATE					m_state = STATE_DONE;
@@ -438,6 +449,11 @@ private:
 	class CCSCCommand : public CCommand
 	{
 	public:
+		enum
+		{
+			BLOCK_SIZE = 0x180,
+		};
+
 						CCSCCommand();
 
 		void			Initialize(CINFIFO*, COUTFIFO*, uint32, uint16, uint16);
@@ -451,11 +467,6 @@ private:
 			STATE_CONVERTBLOCK,
 			STATE_FLUSHBLOCK,
 			STATE_DONE,
-		};
-
-		enum
-		{
-			BLOCK_SIZE = 0x180,
 		};
 
 		void			GenerateCbCrMap();
@@ -505,10 +516,13 @@ private:
 	static void					InverseScan(int16*, bool isZigZag);
 
 	uint32						GetBusyBit(bool) const;
+	FIFO_STATE					GetFifoState() const;
 
 	void						DisassembleGet(uint32);
 	void						DisassembleSet(uint32, uint32);
 	void						DisassembleCommand(uint32);
+
+	CINTC&						m_intc;
 
 	uint8						m_nIntraIQ[0x40];
 	uint8						m_nNonIntraIQ[0x40];

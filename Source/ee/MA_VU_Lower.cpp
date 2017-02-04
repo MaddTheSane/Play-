@@ -90,75 +90,6 @@ bool CMA_VU::CLower::IsLOI(CMIPS* ctx, uint32 address)
 	return (upperInstruction & 0x80000000) != 0;
 }
 
-void CMA_VU::CLower::BuildStatusInIT()
-{
-	//Helper for FSAND and FSOR.  Grabs STATUS flag into current m_nIT register.
-
-	VUShared::CheckMacFlagPipeline(m_codeGen, m_relativePipeTime);
-
-	//Reset result
-	m_codeGen->PushCst(0);
-	m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-
-	//Check Z flag
-	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
-	m_codeGen->PushCst(0x000F);
-	m_codeGen->And();
-	m_codeGen->PushCst(0);
-	m_codeGen->BeginIf(Jitter::CONDITION_NE);
-	{
-		m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-		m_codeGen->PushCst(0x01);
-		m_codeGen->Or();
-		m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-	}
-	m_codeGen->EndIf();
-
-	//Check S flag
-	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
-	m_codeGen->PushCst(0x00F0);
-	m_codeGen->And();
-	m_codeGen->PushCst(0);
-	m_codeGen->BeginIf(Jitter::CONDITION_NE);
-	{
-		m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-		m_codeGen->PushCst(0x02);
-		m_codeGen->Or();
-		m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-	}
-	m_codeGen->EndIf();
-
-	//Check ZS flag
-	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2SF));
-	m_codeGen->PushCst(0x000F);
-	m_codeGen->And();
-	m_codeGen->PushCst(0);
-	m_codeGen->BeginIf(Jitter::CONDITION_NE);
-	{
-		m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-		m_codeGen->PushCst(0x40);
-		m_codeGen->Or();
-		m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-	}
-	m_codeGen->EndIf();
-
-	//Check SS flag
-	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2SF));
-	m_codeGen->PushCst(0x00F0);
-	m_codeGen->And();
-	m_codeGen->PushCst(0);
-	m_codeGen->BeginIf(Jitter::CONDITION_NE);
-	{
-		m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-		m_codeGen->PushCst(0x80);
-		m_codeGen->Or();
-		m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
-	}
-	m_codeGen->EndIf();
-
-	//TODO: Check other flags
-}
-
 void CMA_VU::CLower::GenerateEATAN()
 {
 	static const uint32 pi4 = 0x3F490FDB;
@@ -311,6 +242,8 @@ void CMA_VU::CLower::ISUBIU()
 //10
 void CMA_VU::CLower::FCEQ()
 {
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen, m_relativePipeTime);
+
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2CF));
 	m_codeGen->PushCst(0xFFFFFF);
 	m_codeGen->And();
@@ -333,11 +266,16 @@ void CMA_VU::CLower::FCSET()
 {
 	m_codeGen->PushCst(m_nImm24);
 	m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2CF));
+
+	m_codeGen->PushCst(m_nImm24);
+	ResetFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen);
 }
 
 //12
 void CMA_VU::CLower::FCAND()
 {
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen, m_relativePipeTime);
+
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2CF));
 	m_codeGen->PushCst(m_nImm24);
 	m_codeGen->And();
@@ -359,6 +297,8 @@ void CMA_VU::CLower::FCAND()
 //13
 void CMA_VU::CLower::FCOR()
 {
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen, m_relativePipeTime);
+
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2CF));
 	m_codeGen->PushCst(m_nImm24);
 	m_codeGen->Or();
@@ -382,19 +322,15 @@ void CMA_VU::CLower::FCOR()
 //15
 void CMA_VU::CLower::FSSET()
 {
-	//Only clear sticky flags
-	uint32 stickyFlagsValue = ((m_nImm12 >> 6) & 0x3F);
-	if(stickyFlagsValue == 0)
-	{
-		m_codeGen->PushCst(0);
-		m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2SF));
-	}
+	m_codeGen->PushCst(m_nImm12);
+	m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2T));
+	VUShared::SetStatus(m_codeGen, offsetof(CMIPS, m_State.nCOP2T));
 }
 
 //16
 void CMA_VU::CLower::FSAND()
 {
-	BuildStatusInIT();
+	VUShared::GetStatus(m_codeGen, offsetof(CMIPS, m_State.nCOP2VI[m_nIT]), m_relativePipeTime);
 
 	//Mask result
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
@@ -406,7 +342,7 @@ void CMA_VU::CLower::FSAND()
 //17
 void CMA_VU::CLower::FSOR()
 {
-	BuildStatusInIT();
+	VUShared::GetStatus(m_codeGen, offsetof(CMIPS, m_State.nCOP2VI[m_nIT]), m_relativePipeTime);
 
 	//Mask result
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIT]));
@@ -418,7 +354,7 @@ void CMA_VU::CLower::FSOR()
 //18
 void CMA_VU::CLower::FMEQ()
 {
-	VUShared::CheckMacFlagPipeline(m_codeGen, m_relativePipeTime);
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoMac, m_codeGen, m_relativePipeTime);
 
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIS]));
@@ -429,7 +365,7 @@ void CMA_VU::CLower::FMEQ()
 //1A
 void CMA_VU::CLower::FMAND()
 {
-	VUShared::CheckMacFlagPipeline(m_codeGen, m_relativePipeTime);
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoMac, m_codeGen, m_relativePipeTime);
 
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIS]));
@@ -440,7 +376,7 @@ void CMA_VU::CLower::FMAND()
 //1B
 void CMA_VU::CLower::FMOR()
 {
-	VUShared::CheckMacFlagPipeline(m_codeGen, m_relativePipeTime);
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoMac, m_codeGen, m_relativePipeTime);
 
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nIS]));
@@ -451,6 +387,8 @@ void CMA_VU::CLower::FMOR()
 //1C
 void CMA_VU::CLower::FCGET()
 {
+	VUShared::CheckFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen, m_relativePipeTime);
+
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2CF));
 	m_codeGen->PushCst(0xFFF);
 	m_codeGen->And();

@@ -3,6 +3,7 @@
 #include "../Log.h"
 #include "../ElfFile.h"
 #include "../Ps2Const.h"
+#include "../MipsExecutor.h"
 #include "PtrStream.h"
 #include "Iop_Intc.h"
 #include "lexical_cast_ex.h"
@@ -15,6 +16,7 @@
 #include "Iop_Cdvdfsv.h"
 #include "Iop_McServ.h"
 #include "Iop_FileIo.h"
+#include "Iop_Naplink.h"
 #endif
 
 #include "Iop_SifManNull.h"
@@ -26,6 +28,7 @@
 #include "Iop_Thvpool.h"
 #include "Iop_Thmsgbx.h"
 #include "Iop_Thevent.h"
+#include "Iop_Heaplib.h"
 #include "Iop_Timrman.h"
 #include "Iop_Intrman.h"
 #include "Iop_Vblank.h"
@@ -74,8 +77,9 @@
 //This is the space needed to preserve at most four arguments in the stack frame (as per MIPS calling convention)
 #define STACK_FRAME_RESERVE_SIZE		0x10
 
-CIopBios::CIopBios(CMIPS& cpu, uint8* ram, uint32 ramSize, uint8* spr)
+CIopBios::CIopBios(CMIPS& cpu, CMipsExecutor& cpuExecutor, uint8* ram, uint32 ramSize, uint8* spr)
 : m_cpu(cpu)
+, m_cpuExecutor(cpuExecutor)
 , m_ram(ram)
 , m_ramSize(ramSize)
 , m_spr(spr)
@@ -184,6 +188,9 @@ void CIopBios::Reset(const Iop::SifManPtr& sifMan)
 		RegisterModule(std::make_shared<Iop::CThevent>(*this, m_ram));
 	}
 	{
+		RegisterModule(std::make_shared<Iop::CHeaplib>(*m_sysmem));
+	}
+	{
 		RegisterModule(std::make_shared<Iop::CTimrman>(*this));
 	}
 	{
@@ -212,9 +219,8 @@ void CIopBios::Reset(const Iop::SifManPtr& sifMan)
 		m_cdvdfsv = std::make_shared<Iop::CCdvdfsv>(*m_sifMan, *m_cdvdman, m_ram);
 		RegisterModule(m_cdvdfsv);
 	}
-	{
-		RegisterModule(std::make_shared<Iop::CMcServ>(*m_sifMan));
-	}
+	RegisterModule(std::make_shared<Iop::CMcServ>(*m_sifMan));
+	//RegisterModule(std::make_shared<Iop::CNaplink>(*m_sifMan, *m_ioman));
 	{
 		m_padman = std::make_shared<Iop::CPadMan>();
 		m_mtapman = std::make_shared<Iop::CMtapMan>();
@@ -534,6 +540,8 @@ int32 CIopBios::LoadModule(const char* path)
 #ifdef _IOP_EMULATE_MODULES
 	//HACK: This is needed to make 'doom.elf' read input properly
 	if(
+		!strcmp(path, "rom0:SIO2MAN") || 
+		!strcmp(path, "rom0:PADMAN") || 
 		!strcmp(path, "rom0:XSIO2MAN") || 
 		!strcmp(path, "rom0:XPADMAN")
 		)
@@ -552,7 +560,7 @@ int32 CIopBios::LoadModule(const char* path)
 		return -1;
 	}
 	Iop::CIoman::CFile file(handle, *m_ioman);
-	Framework::CStream* stream = m_ioman->GetFileStream(file);
+	auto stream = m_ioman->GetFileStream(file);
 	CElfFile module(*stream);
 	return LoadModule(module, path);
 }
@@ -599,6 +607,7 @@ int32 CIopBios::LoadModule(CELF& elf, const char* path)
 	//Fill in module info
 	strncpy(loadedModule->name, moduleName.c_str(), LOADEDMODULE::MAX_NAME_SIZE);
 	loadedModule->start			= moduleRange.first;
+	loadedModule->end			= moduleRange.second;
 	loadedModule->entryPoint	= entryPoint;
 	loadedModule->gp			= iopMod ? (iopMod->gp + moduleRange.first) : 0;
 	loadedModule->state			= MODULE_STATE::STOPPED;
@@ -636,6 +645,10 @@ int32 CIopBios::UnloadModule(uint32 loadedModuleId)
 			loadedModuleId);
 		return -1;
 	}
+
+	//TODO: Remove module from IOP module list?
+	//TODO: Invalidate MIPS analysis range?
+	m_cpuExecutor.ClearActiveBlocksInRange(loadedModule->start, loadedModule->end);
 
 	//TODO: Check return value here.
 	m_sysmem->FreeMemory(loadedModule->start);
@@ -2951,13 +2964,11 @@ void CIopBios::LoadDebugTags(Framework::Xml::CNode* root)
 
 void CIopBios::SaveDebugTags(Framework::Xml::CNode* root)
 {
-	Framework::Xml::CNode* moduleSection = new Framework::Xml::CNode(TAGS_SECTION_IOP_MODULES, true);
+	auto moduleSection = new Framework::Xml::CNode(TAGS_SECTION_IOP_MODULES, true);
 
-	for(auto moduleIterator(std::begin(m_moduleTags));
-		std::end(m_moduleTags) != moduleIterator; moduleIterator++)
+	for(const auto& module : m_moduleTags)
 	{
-		const auto& module(*moduleIterator);
-		Framework::Xml::CNode* moduleNode = new Framework::Xml::CNode(TAGS_SECTION_IOP_MODULES_MODULE, true);
+		auto moduleNode = new Framework::Xml::CNode(TAGS_SECTION_IOP_MODULES_MODULE, true);
 		moduleNode->InsertAttribute(TAGS_SECTION_IOP_MODULES_MODULE_BEGINADDRESS,	lexical_cast_hex<std::string>(module.begin, 8).c_str());
 		moduleNode->InsertAttribute(TAGS_SECTION_IOP_MODULES_MODULE_ENDADDRESS,		lexical_cast_hex<std::string>(module.end, 8).c_str());
 		moduleNode->InsertAttribute(TAGS_SECTION_IOP_MODULES_MODULE_NAME,			module.name.c_str());

@@ -19,11 +19,19 @@ namespace VUShared
 		VECTOR_COMPW = 3,
 	};
 
-	struct PIPEINFO
+	struct REGISTER_PIPEINFO
 	{
-		size_t					value;
-		size_t					heldValue;
-		size_t					counter;
+		size_t value;
+		size_t heldValue;
+		size_t counter;
+	};
+
+	struct FLAG_PIPEINFO
+	{
+		size_t value;
+		size_t index;
+		size_t valueArray;
+		size_t timeArray;
 	};
 
 	struct OPERANDSET
@@ -77,6 +85,9 @@ namespace VUShared
 	void						ClampVector(CMipsJitter*);
 	void						TestSZFlags(CMipsJitter*, uint8, size_t, uint32);
 
+	void						GetStatus(CMipsJitter*, size_t, uint32);
+	void						SetStatus(CMipsJitter*, size_t);
+
 	void						ADDA_base(CMipsJitter*, uint8, size_t, size_t, bool);
 	void						MADD_base(CMipsJitter*, uint8, size_t, size_t, size_t, bool, uint32);
 	void						MADDA_base(CMipsJitter*, uint8, size_t, size_t, bool, uint32);
@@ -93,7 +104,7 @@ namespace VUShared
 	void						ADDA(CMipsJitter*, uint8, uint8, uint8);
 	void						ADDAbc(CMipsJitter*, uint8, uint8, uint8, uint8);
 	void						ADDAi(CMipsJitter*, uint8, uint8);
-	void						CLIP(CMipsJitter*, uint8, uint8);
+	void						CLIP(CMipsJitter*, uint8, uint8, uint32);
 	void						DIV(CMipsJitter*, uint8, uint8, uint8, uint8, uint32);
 	void						FTOI0(CMipsJitter*, uint8, uint8, uint8);
 	void						FTOI4(CMipsJitter*, uint8, uint8, uint8);
@@ -137,6 +148,7 @@ namespace VUShared
 	void						MSUBA(CMipsJitter*, uint8, uint8, uint8, uint32);
 	void						MSUBAbc(CMipsJitter*, uint8, uint8, uint8, uint8, uint32);
 	void						MSUBAi(CMipsJitter*, uint8, uint8, uint32);
+	void						MSUBAq(CMipsJitter*, uint8, uint8, uint32);
 	void						MFIR(CMipsJitter*, uint8, uint8, uint8);
 	void						MTIR(CMipsJitter*, uint8, uint8, uint8);
 	void						MUL(CMipsJitter*, uint8, uint8, uint8, uint8, uint32);
@@ -167,10 +179,12 @@ namespace VUShared
 	void						SUBAi(CMipsJitter*, uint8, uint8, uint32);
 	void						WAITQ(CMipsJitter*);
 
-	void						FlushPipeline(const PIPEINFO&, CMipsJitter*);
-	void						CheckPipeline(const PIPEINFO&, CMipsJitter*, uint32);
-	void						QueueInPipeline(const PIPEINFO&, CMipsJitter*, uint32, uint32);
-	void						CheckMacFlagPipeline(CMipsJitter*, uint32);
+	void						FlushPipeline(const REGISTER_PIPEINFO&, CMipsJitter*);
+	void						CheckPipeline(const REGISTER_PIPEINFO&, CMipsJitter*, uint32);
+	void						QueueInPipeline(const REGISTER_PIPEINFO&, CMipsJitter*, uint32, uint32);
+	void						CheckFlagPipeline(const FLAG_PIPEINFO&, CMipsJitter*, uint32);
+	void						QueueInFlagPipeline(const FLAG_PIPEINFO&, CMipsJitter*, uint32, uint32);
+	void						ResetFlagPipeline(const FLAG_PIPEINFO&, CMipsJitter*);
 
 	//Shared addressing modes
 	void						ReflOpFdFsI(MIPSReflection::INSTRUCTION*, CMIPS*, uint32, uint32, char*, unsigned int);
@@ -218,7 +232,10 @@ namespace VUShared
 
 	extern const char*			m_sBroadcast[4];
 	extern const char*			m_sDestination[16];
-	extern const PIPEINFO		g_pipeInfoQ;
+
+	extern const REGISTER_PIPEINFO g_pipeInfoQ;
+	extern const FLAG_PIPEINFO     g_pipeInfoMac;
+	extern const FLAG_PIPEINFO     g_pipeInfoClip;
 }
 
 #endif

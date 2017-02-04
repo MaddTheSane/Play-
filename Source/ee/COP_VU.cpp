@@ -12,6 +12,21 @@
 
 #define LOG_NAME				("vpu")
 
+enum CTRL_REG
+{
+	CTRL_REG_STATUS   = 16,
+	CTRL_REG_MAC      = 17,
+	CTRL_REG_CLIP     = 18,
+	CTRL_REG_R        = 20,
+	CTRL_REG_I        = 21,
+	CTRL_REG_Q        = 22,
+	CTRL_REG_TPC      = 26,
+	CTRL_REG_CMSAR0   = 27,
+	CTRL_REG_FBRST    = 28,
+	CTRL_REG_VPU_STAT = 29,
+	CTRL_REG_CMSAR1   = 31,
+};
+
 CCOP_VU::CCOP_VU(MIPS_REGSIZE nRegSize) 
 : CMIPSCoprocessor(nRegSize)
 , m_nFT(0)
@@ -120,6 +135,8 @@ void CCOP_VU::QMFC2()
 //02
 void CCOP_VU::CFC2()
 {
+	if(m_nFT == 0) return;
+
 	if(m_nFS < 16)
 	{
 		m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2VI[m_nFS]));
@@ -130,29 +147,30 @@ void CCOP_VU::CFC2()
 	{
 		switch(m_nFS)
 		{
-		case 18:	//Clipping flag
+		case CTRL_REG_CLIP:
+			VUShared::CheckFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen, 4);
 			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2CF));
 			break;
-		case 16:	//STATUS
-			CLog::GetInstance().Print(LOG_NAME, "Warning: Reading contents of STATUS flag through CFC2.\r\n");
-			m_codeGen->PushRel(offsetof(CMIPS, m_State.nGPR[0].nV[0]));
+		case CTRL_REG_STATUS:
+			VUShared::GetStatus(m_codeGen, offsetof(CMIPS, m_State.nCOP2T), 4);
+			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2T));
 			break;
-		case 20:	//R
+		case CTRL_REG_R:
 			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2R));
 			break;
-		case 17:	//MAC flag
-#ifdef _DEBUG
-			CLog::GetInstance().Print(LOG_NAME, "Warning: Reading contents of MAC flag through CFC2.\r\n");
-#endif
-		case 26:	//TPC
-		case 28:	//FBRST
-		case 29:	//VPU-STAT
+		case CTRL_REG_MAC:
+			VUShared::CheckFlagPipeline(VUShared::g_pipeInfoMac, m_codeGen, 4);
+			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2MF));
+			break;
+		case CTRL_REG_TPC:
+		case CTRL_REG_FBRST:
+		case CTRL_REG_VPU_STAT:
 			m_codeGen->PushRel(offsetof(CMIPS, m_State.nGPR[0].nV[0]));
 			break;
-		case 21:
+		case CTRL_REG_I:
 			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2I));
 			break;
-		case 22:
+		case CTRL_REG_Q:
 			m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP2Q));
 			break;
 		default:
@@ -200,55 +218,56 @@ void CCOP_VU::CTC2()
 
 		switch(m_nFS)
 		{
-		case 16:
-			//STATUS - Not implemented
-#ifdef _DEBUG
-			CLog::GetInstance().Print(LOG_NAME, "Warning: Writing contents of STATUS flag through CTC2.\r\n");
-#endif
+		case CTRL_REG_STATUS:
+			m_codeGen->PullTop();
+			VUShared::SetStatus(m_codeGen, offsetof(CMIPS, m_State.nGPR[m_nFT].nV[0]));
+			break;
+		case CTRL_REG_MAC:
+			//Read-only register
 			m_codeGen->PullTop();
 			break;
-		case 17:
-			//MAC - Not implemented
-#ifdef _DEBUG
-			CLog::GetInstance().Print(LOG_NAME, "Warning: Writing contents of MAC flag through CTC2.\r\n");
-#endif
-			m_codeGen->PullTop();
-			break;
-		case 18:
-			//Clipping flag
+		case CTRL_REG_CLIP:
+			m_codeGen->PushCst(0xFFFFFF);
+			m_codeGen->And();
+			m_codeGen->PushTop();
 			m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2CF));
+			VUShared::ResetFlagPipeline(VUShared::g_pipeInfoClip, m_codeGen);
 			break;
-		case 20:
+		case CTRL_REG_R:
 			m_codeGen->PushCst(0x7FFFFF);
 			m_codeGen->And();
 			m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2R));
 			break;
-		case 21:
+		case CTRL_REG_I:
 			m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2I));
 			break;
-		case 22:
+		case CTRL_REG_Q:
 			m_codeGen->PullRel(offsetof(CMIPS, m_State.nCOP2Q));
 			break;
-		case 27:
-			//CMSAR0
+		case CTRL_REG_CMSAR0:
+			m_codeGen->PushCst(0xFFFF);
+			m_codeGen->And();
 			m_codeGen->PullRel(offsetof(CMIPS, m_State.cmsar0));
 			break;
-		case 28:
-			//FBRST - Don't care
+		case CTRL_REG_FBRST:
+			//Don't care
 			m_codeGen->PullTop();
 			break;
-		case 31:
-			//CMSAR1
+		case CTRL_REG_CMSAR1:
 			{
+				m_codeGen->PushCst(0xFFFF);
+				m_codeGen->And();
+				uint32 valueCursor = m_codeGen->GetTopCursor();
+
 				//Push context
 				m_codeGen->PushCtx();
 				//Push value
-				m_codeGen->PushIdx(1);
+				m_codeGen->PushCursor(valueCursor);
 				//Compute Address
 				m_codeGen->PushCst(CVpu::VU_CMSAR1);
 				m_codeGen->Call(reinterpret_cast<void*>(&MemoryUtils_SetWordProxy), 3, false);
 				//Clear stack
-				m_codeGen->PullTop();
+				assert(m_codeGen->GetTopCursor() == valueCursor); m_codeGen->PullTop();
 			}
 			break;
 		default:
@@ -345,7 +364,7 @@ void CCOP_VU::VMULbc()
 //1C
 void CCOP_VU::VMULq()
 {
-	VUShared::MULq(m_codeGen, m_nDest, m_nFD, m_nFS, m_nAddress);
+	VUShared::MULq(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //1D
@@ -782,7 +801,7 @@ void CCOP_VU::VFTOI15()
 //07
 void CCOP_VU::VCLIP()
 {
-	VUShared::CLIP(m_codeGen, m_nFS, m_nFT);
+	VUShared::CLIP(m_codeGen, m_nFS, m_nFT, 0);
 }
 
 //08

@@ -19,6 +19,7 @@
 #include "idct/IEEE1180.h"
 #include "../Log.h"
 #include "DMAC.h"
+#include "INTC.h"
 
 #define LOG_NAME ("ipu")
 
@@ -41,8 +42,9 @@ static CVLCTable::DECODE_STATUS FilterSymbolError(CVLCTable::DECODE_STATUS resul
 	}
 }
 
-CIPU::CIPU() 
-: m_IPU_CTRL(0)
+CIPU::CIPU(CINTC& intc)
+: m_intc(intc)
+, m_IPU_CTRL(0)
 , m_isBusy(false)
 , m_currentCmd(nullptr)
 {
@@ -88,7 +90,10 @@ uint32 CIPU::GetRegister(uint32 nAddress)
 		break;
 
 	case IPU_CTRL + 0x0:
-		return m_IPU_CTRL | GetBusyBit(m_isBusy) | (m_IN_FIFO.GetSize() / 0x10);
+		{
+			auto fifoState = GetFifoState();
+			return m_IPU_CTRL | GetBusyBit(m_isBusy) | fifoState.ifc;
+		}
 		break;
 	case IPU_CTRL + 0x4:
 	case IPU_CTRL + 0x8:
@@ -96,7 +101,10 @@ uint32 CIPU::GetRegister(uint32 nAddress)
 		break;
 
 	case IPU_BP + 0x0:
-		return ((m_IN_FIFO.GetSize() / 0x10) << 8) | (m_IN_FIFO.GetBitIndex());
+		{
+			auto fifoState = GetFifoState();
+			return (fifoState.fp << 16) | (fifoState.ifc << 8) | fifoState.bp;
+		}
 		break;
 
 	case IPU_BP + 0x4:
@@ -233,6 +241,7 @@ void CIPU::ExecuteCommand()
 
 		//Clear BUSY states
 		m_isBusy = false;
+		m_intc.AssertLine(CINTC::INTC_LINE_IPU);
 	}
 	catch(const Framework::CBitStream::CBitStreamException&)
 	{
@@ -519,6 +528,25 @@ void CIPU::InverseScan(int16* pBlock, bool isZigZag)
 uint32 CIPU::GetBusyBit(bool condition) const
 {
 	return condition ? 0x80000000 : 0x00000000;
+}
+
+CIPU::FIFO_STATE CIPU::GetFifoState() const
+{
+	uint32 bp = m_IN_FIFO.GetBitIndex();
+	uint32 ifc = m_IN_FIFO.GetSize() / 0x10;
+	uint32 fp = 0;
+
+	if((bp != 0) && (ifc != 0))
+	{
+		fp++;
+		ifc--;
+	}
+
+	FIFO_STATE state;
+	state.bp = bp;
+	state.ifc = ifc;
+	state.fp = fp;
+	return state;
 }
 
 void CIPU::DisassembleGet(uint32 nAddress)
@@ -818,12 +846,12 @@ void CIPU::CINFIFO::SetBitPosition(unsigned int position)
 	m_bitPosition = position;
 }
 
-unsigned int CIPU::CINFIFO::GetSize()
+unsigned int CIPU::CINFIFO::GetSize() const
 {
 	return m_size;
 }
 
-unsigned int CIPU::CINFIFO::GetAvailableBits()
+unsigned int CIPU::CINFIFO::GetAvailableBits() const
 {
 	return (m_size * 8) - m_bitPosition;
 }
@@ -974,6 +1002,9 @@ bool CIPU::CIDECCommand::Execute()
 				{
 					return false;
 				}
+				//BDEC will yield 384 elements in RAW16 format
+				assert(m_blockStream.GetSize() == (CCSCCommand::BLOCK_SIZE * sizeof(int16)));
+				ConvertRawBlock();
 				m_state = STATE_CSCINIT;
 				m_mbCount++;
 			}
@@ -987,6 +1018,8 @@ bool CIPU::CIDECCommand::Execute()
 				cscCommand.ofm		= m_command.ofm;
 				m_CSCCommand->Initialize(&m_temp_IN_FIFO, m_OUT_FIFO, cscCommand, m_TH0, m_TH1);
 				m_state = STATE_CSC;
+				//CSC requires 384 elements in RAW8 format to proceed
+				assert(m_blockStream.GetSize() == (CCSCCommand::BLOCK_SIZE * sizeof(uint8)));
 				m_blockStream.Seek(0, Framework::STREAM_SEEK_SET);
 			}
 			break;
@@ -1002,6 +1035,9 @@ bool CIPU::CIDECCommand::Execute()
 				}
 				if(m_CSCCommand->Execute())
 				{
+					//All data should have been consumed by CSC, so nothing should remain
+					uint32 remainLength = m_temp_IN_FIFO.GetAvailableBits() + (m_blockStream.GetRemainingLength() * 8);
+					assert(remainLength == 0);
 					m_state = STATE_CHECKSTARTCODE;
 					break;
 				}
@@ -1060,6 +1096,22 @@ void CIPU::CIDECCommand::CountTicks(uint32 ticks)
 bool CIPU::CIDECCommand::IsDelayed() const
 {
 	return (m_state == STATE_DELAY);
+}
+
+void CIPU::CIDECCommand::ConvertRawBlock()
+{
+	//Convert block from RAW16 to RAW8
+	int16 blockData[CCSCCommand::BLOCK_SIZE];
+	m_blockStream.Seek(0, Framework::STREAM_SEEK_SET);
+	m_blockStream.Read(blockData, CCSCCommand::BLOCK_SIZE * sizeof(int16));
+	m_blockStream.ResetBuffer();
+	for(uint32 i = 0; i < CCSCCommand::BLOCK_SIZE; i++)
+	{
+		int16 blockValue = blockData[i];
+		blockValue = std::max<int16>(blockValue, 0);
+		blockValue = std::min<int16>(blockValue, 255);
+		m_blockStream.Write8(static_cast<uint8>(blockValue));
+	}
 }
 
 /////////////////////////////////////////////
@@ -1785,10 +1837,6 @@ bool CIPU::CCSCCommand::Execute()
 						float nY  = pY[j];
 						float nCb = nBlockCb[pCbCrMap[j]];
 						float nCr = nBlockCr[pCbCrMap[j]];
-
-						//nY = nBlockCb[pCbCrMap[j]];
-						//nCb = 128;
-						//nCr = 128;
 
 						float nR = nY								+ 1.402f	* (nCr - 128);
 						float nG = nY - 0.34414f	* (nCb - 128)	- 0.71414f	* (nCr - 128);

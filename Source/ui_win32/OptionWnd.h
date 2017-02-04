@@ -16,8 +16,8 @@ public:
 protected:
 	virtual void					OnItemAppearing(HTREEITEM);
 
-	long							OnNotify(WPARAM, NMHDR*);
-	long							OnSize(unsigned int, unsigned int, unsigned int);
+	LRESULT							OnNotify(WPARAM, NMHDR*) override;
+	long							OnSize(unsigned int, unsigned int, unsigned int) override;
 
 	Framework::Win32::CWindow*		GetContainer();
 	Framework::Win32::CTreeView*	GetTreeView();

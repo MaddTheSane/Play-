@@ -65,11 +65,6 @@ void CGSH_OpenGL::InitializeImpl()
 
 	m_nVtxCount = 0;
 
-	for(unsigned int i = 0; i < MAX_TEXTURE_CACHE; i++)
-	{
-		m_textureCache.push_back(TexturePtr(new CTexture()));
-	}
-
 	for(unsigned int i = 0; i < MAX_PALETTE_CACHE; i++)
 	{
 		m_paletteCache.push_back(PalettePtr(new CPalette()));
@@ -84,7 +79,6 @@ void CGSH_OpenGL::ReleaseImpl()
 {
 	ResetImpl();
 
-	m_textureCache.clear();
 	m_paletteCache.clear();
 	m_shaders.clear();
 	m_presentProgram.reset();
@@ -103,7 +97,7 @@ void CGSH_OpenGL::ReleaseImpl()
 void CGSH_OpenGL::ResetImpl()
 {
 	LoadPreferences();
-	TexCache_Flush();
+	m_textureCache.Flush();
 	PalCache_Flush();
 	m_framebuffers.clear();
 	m_depthbuffers.clear();
@@ -285,8 +279,12 @@ void CGSH_OpenGL::FlipImpl()
 void CGSH_OpenGL::LoadState(Framework::CZipArchiveReader& archive)
 {
 	CGSHandler::LoadState(archive);
-
-	m_mailBox.SendCall(std::bind(&CGSH_OpenGL::TexCache_InvalidateTextures, this, 0, RAMSIZE));
+	m_mailBox.SendCall(
+		[this] ()
+		{
+			m_textureCache.InvalidateRange(0, RAMSIZE);
+		}
+	);
 }
 
 void CGSH_OpenGL::RegisterPreferences()
@@ -299,7 +297,7 @@ void CGSH_OpenGL::RegisterPreferences()
 void CGSH_OpenGL::NotifyPreferencesChangedImpl()
 {
 	LoadPreferences();
-	TexCache_Flush();
+	m_textureCache.Flush();
 	PalCache_Flush();
 	m_framebuffers.clear();
 	m_depthbuffers.clear();
@@ -318,7 +316,7 @@ void CGSH_OpenGL::InitializeRC()
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClearDepthf(0.0f);
 
-	SetupTextureUploaders();
+	SetupTextureUpdaters();
 
 	m_presentProgram = GeneratePresentProgram();
 	m_presentVertexBuffer = GeneratePresentVertexBuffer();
@@ -878,6 +876,9 @@ void CGSH_OpenGL::SetupTestFunctions(uint64 testReg)
 	m_fragmentParams.alphaRef = static_cast<float>(test.nAlphaRef) / 255.0f;
 	m_validGlState &= ~GLSTATE_FRAGMENT_PARAMS;
 
+	m_renderState.depthTest = (test.nDepthEnabled != 0);
+	m_validGlState &= ~GLSTATE_DEPTHTEST;
+
 	if(test.nDepthEnabled)
 	{
 		unsigned int nFunc = GL_NEVER;
@@ -899,12 +900,6 @@ void CGSH_OpenGL::SetupTestFunctions(uint64 testReg)
 		}
 
 		glDepthFunc(nFunc);
-
-		glEnable(GL_DEPTH_TEST);
-	}
-	else
-	{
-		glDisable(GL_DEPTH_TEST);
 	}
 }
 
@@ -1697,6 +1692,12 @@ void CGSH_OpenGL::DoRenderPass()
 		m_validGlState |= GLSTATE_BLEND;
 	}
 
+	if((m_validGlState & GLSTATE_DEPTHTEST) == 0)
+	{
+		m_renderState.depthTest ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
+		m_validGlState |= GLSTATE_DEPTHTEST;
+	}
+
 	if((m_validGlState & GLSTATE_COLORMASK) == 0)
 	{
 		glColorMask(
@@ -1815,7 +1816,7 @@ void CGSH_OpenGL::CopyToFb(
 	int32 dstX0, int32 dstY0, int32 dstX1, int32 dstY1)
 {
 	m_validGlState &= ~(GLSTATE_BLEND | GLSTATE_COLORMASK | GLSTATE_SCISSOR | GLSTATE_PROGRAM);
-	m_validGlState &= ~(GLSTATE_VIEWPORT);
+	m_validGlState &= ~(GLSTATE_VIEWPORT | GLSTATE_DEPTHTEST | GLSTATE_DEPTHMASK);
 
 	assert(srcX1 >= srcX0);
 	assert(srcY1 >= srcY0);
@@ -1831,6 +1832,7 @@ void CGSH_OpenGL::CopyToFb(
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_SCISSOR_TEST);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_FALSE);
 
 	glUseProgram(*m_copyToFbProgram);
 
@@ -2008,7 +2010,7 @@ void CGSH_OpenGL::ProcessHostToLocalTransfer()
 		uint32 transferSize = pageCount * CGsPixelFormats::PAGESIZE;
 		uint32 transferOffset = (trxPos.nDSAY / transferPageSize.second) * pageCountX * CGsPixelFormats::PAGESIZE;
 
-		TexCache_InvalidateTextures(transferAddress + transferOffset, transferSize);
+		m_textureCache.InvalidateRange(transferAddress + transferOffset, transferSize);
 
 		bool isUpperByteTransfer = (bltBuf.nDstPsm == PSMT8H) || (bltBuf.nDstPsm == PSMT4HL) || (bltBuf.nDstPsm == PSMT4HH);
 		for(const auto& framebuffer : m_framebuffers)
@@ -2205,14 +2207,18 @@ CGSH_OpenGL::CFramebuffer::~CFramebuffer()
 
 void CGSH_OpenGL::PopulateFramebuffer(const FramebufferPtr& framebuffer)
 {
+	auto texFormat = GetTextureFormatInfo(framebuffer->m_psm);
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, m_copyToFbTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, texFormat.internalFormat, framebuffer->m_width, framebuffer->m_height,
+		0, texFormat.format, texFormat.type, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	((this)->*(m_textureUploader[framebuffer->m_psm]))(framebuffer->m_basePtr, 
-		framebuffer->m_width / 64, framebuffer->m_width, framebuffer->m_height);
+	((this)->*(m_textureUpdater[framebuffer->m_psm]))(framebuffer->m_basePtr, 
+		framebuffer->m_width / 64, 0, 0, framebuffer->m_width, framebuffer->m_height);
 	CHECKGLERROR();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer->m_framebuffer);
@@ -2231,11 +2237,6 @@ void CGSH_OpenGL::CommitFramebufferDirtyPages(const FramebufferPtr& framebuffer,
 	class CCopyToFbEnabler
 	{
 	public:
-		~CCopyToFbEnabler()
-		{
-
-		}
-
 		void EnableCopyToFb(const FramebufferPtr& framebuffer, GLuint copyToFbTexture)
 		{
 			if(m_copyToFbEnabled) return;
@@ -2262,57 +2263,58 @@ void CGSH_OpenGL::CommitFramebufferDirtyPages(const FramebufferPtr& framebuffer,
 
 	auto& cachedArea = framebuffer->m_cachedArea;
 
-	if(cachedArea.HasDirtyPages())
+	auto areaRect = cachedArea.GetAreaPageRect();
+	auto texturePageSize = CGsPixelFormats::GetPsmPageSize(framebuffer->m_psm);
+
+	CCopyToFbEnabler copyToFbEnabler;
+	while(cachedArea.HasDirtyPages())
 	{
-		CCopyToFbEnabler copyToFbEnabler;
+		auto dirtyRect = cachedArea.GetDirtyPageRect();
+		assert((dirtyRect.width != 0) && (dirtyRect.height != 0));
+		cachedArea.ClearDirtyPages(dirtyRect);
 
-		auto texturePageSize = CGsPixelFormats::GetPsmPageSize(framebuffer->m_psm);
-		auto pageRect = cachedArea.GetPageRect();
+		uint32 texX = dirtyRect.x * texturePageSize.first;
+		uint32 texY = dirtyRect.y * texturePageSize.second;
+		uint32 texWidth = dirtyRect.width * texturePageSize.first;
+		uint32 texHeight = dirtyRect.height * texturePageSize.second;
 
-		for(unsigned int dirtyPageIndex = 0; dirtyPageIndex < CGsCachedArea::MAX_DIRTYPAGES; dirtyPageIndex++)
+		if(texY >= maxY)
 		{
-			if(!cachedArea.IsPageDirty(dirtyPageIndex)) continue;
-
-			uint32 pageX = dirtyPageIndex % pageRect.first;
-			uint32 pageY = dirtyPageIndex / pageRect.first;
-			uint32 texX = pageX * texturePageSize.first;
-			uint32 texY = pageY * texturePageSize.second;
-			uint32 texWidth = texturePageSize.first;
-			uint32 texHeight = texturePageSize.second;
-			if(texX >= framebuffer->m_width) continue;
-			if(texY >= framebuffer->m_height) continue;
-			if(texY < minY) continue;
-			if(texY >= maxY) continue;
-			//assert(texX < tex0.GetWidth());
-			//assert(texY < tex0.GetHeight());
-			if((texX + texWidth) > framebuffer->m_width)
-			{
-				texWidth = framebuffer->m_width - texX;
-			}
-			if((texY + texHeight) > framebuffer->m_height)
-			{
-				texHeight = framebuffer->m_height - texY;
-			}
-			
-			m_validGlState &= ~(GLSTATE_SCISSOR | GLSTATE_FRAMEBUFFER | GLSTATE_TEXTURE);
-			copyToFbEnabler.EnableCopyToFb(framebuffer, m_copyToFbTexture);
-
-			((this)->*(m_textureUpdater[framebuffer->m_psm]))(framebuffer->m_basePtr, framebuffer->m_width / 64,
-				texX, texY, texWidth, texHeight);
-			
-			CopyToFb(
-				texX,             texY,             (texX + texWidth),             (texY + texHeight),
-				framebuffer->m_width, framebuffer->m_height,
-				texX * m_fbScale, texY * m_fbScale, (texX + texWidth) * m_fbScale, (texY + texHeight) * m_fbScale);
-			framebuffer->m_resolveNeeded = true;
-
-			CHECKGLERROR();
+			//Don't bother
+			continue;
 		}
 
-		//Mark all pages as clean, but might be wrong due to range not
-		//covering an area that might be used later on
-		cachedArea.ClearDirtyPages();
+		assert(texX < framebuffer->m_width);
+		assert(texY < framebuffer->m_height);
+		//assert(texY >= minY);
+		//assert(texY < maxY);
+		if((texX + texWidth) > framebuffer->m_width)
+		{
+			texWidth = framebuffer->m_width - texX;
+		}
+		if((texY + texHeight) > framebuffer->m_height)
+		{
+			texHeight = framebuffer->m_height - texY;
+		}
+
+		m_validGlState &= ~(GLSTATE_SCISSOR | GLSTATE_FRAMEBUFFER | GLSTATE_TEXTURE);
+		copyToFbEnabler.EnableCopyToFb(framebuffer, m_copyToFbTexture);
+
+		((this)->*(m_textureUpdater[framebuffer->m_psm]))(framebuffer->m_basePtr, framebuffer->m_width / 64,
+			texX, texY, texWidth, texHeight);
+
+		CopyToFb(
+			texX,             texY,             (texX + texWidth),             (texY + texHeight),
+			framebuffer->m_width, framebuffer->m_height,
+			texX * m_fbScale, texY * m_fbScale, (texX + texWidth) * m_fbScale, (texY + texHeight) * m_fbScale);
+		framebuffer->m_resolveNeeded = true;
+
+		CHECKGLERROR();
 	}
+
+	//Mark all pages as clean, but might be wrong due to range not
+	//covering an area that might be used later on
+	cachedArea.ClearDirtyPages();
 }
 
 void CGSH_OpenGL::ResolveFramebufferMultisample(const FramebufferPtr& framebuffer, uint32 scale)

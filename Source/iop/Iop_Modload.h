@@ -10,7 +10,7 @@ namespace Iop
 	{
 	public:
 						CModload(CIopBios&, uint8*);
-		virtual			~CModload();
+		virtual			~CModload() = default;
 
 		std::string		GetId() const override;
 		std::string		GetFunctionName(unsigned int) const override;
@@ -21,6 +21,8 @@ namespace Iop
 		uint32			StartModule(uint32, uint32, uint32, uint32, uint32);
 		uint32			LoadModuleBuffer(uint32);
 		uint32			GetModuleIdList(uint32, uint32, uint32);
+		int32			ReferModuleStatus(uint32, uint32);
+		int32			SearchModuleByName(uint32);
 
 		CIopBios&		m_bios;
 		uint8*			m_ram = nullptr;

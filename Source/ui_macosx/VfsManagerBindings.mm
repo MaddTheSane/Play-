@@ -191,7 +191,7 @@
 		}
 		else
 		{
-			m_value = [@(preferenceValue) retain];
+			m_value = [[NSString alloc] initWithUTF8String: preferenceValue];
 		}
 	}
 	return self;

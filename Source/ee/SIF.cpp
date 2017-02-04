@@ -6,7 +6,7 @@
 #include "SIF.h"
 #include "lexical_cast_ex.h"
 
-#define		RPC_RECVADDR		0xDEADBEEF
+#define		RPC_RECVADDR		0xDEADBEF0
 #define		SIF_RESETADDR		0		//Only works if equals to 0
 
 #define LOG_NAME					("sif")
@@ -14,7 +14,8 @@
 #define STATE_REGS_XML				("sif/regs.xml")
 #define STATE_CALL_REPLIES_XML		("sif/call_replies.xml")
 
-#define STATE_PACKET_HEADER_SIZE				("Packet_Header_Size")
+#define STATE_PACKET_HEADER_PACKETSIZE			("Packet_Header_PacketSize")
+#define STATE_PACKET_HEADER_DESTSIZE			("Packet_Header_DestSize")
 #define STATE_PACKET_HEADER_DEST				("Packet_Header_Dest")
 #define STATE_PACKET_HEADER_CID					("Packet_Header_CId")
 #define STATE_PACKET_HEADER_OPTIONAL			("Packet_Header_Optional")
@@ -312,18 +313,20 @@ void CSIF::SaveState(Framework::CZipArchiveWriter& archive)
 
 void CSIF::SaveState_Header(const std::string& prefix, CStructFile& file, const SIFCMDHEADER& packetHeader)
 {
-	file.SetRegister32((prefix + STATE_PACKET_HEADER_SIZE).c_str(),			packetHeader.size);
-	file.SetRegister32((prefix + STATE_PACKET_HEADER_DEST).c_str(),			packetHeader.dest);
-	file.SetRegister32((prefix + STATE_PACKET_HEADER_CID).c_str(),			packetHeader.commandId);
-	file.SetRegister32((prefix + STATE_PACKET_HEADER_OPTIONAL).c_str(),		packetHeader.optional);
+	file.SetRegister32((prefix + STATE_PACKET_HEADER_PACKETSIZE).c_str(), packetHeader.packetSize);
+	file.SetRegister32((prefix + STATE_PACKET_HEADER_DESTSIZE).c_str(),   packetHeader.destSize);
+	file.SetRegister32((prefix + STATE_PACKET_HEADER_DEST).c_str(),       packetHeader.dest);
+	file.SetRegister32((prefix + STATE_PACKET_HEADER_CID).c_str(),        packetHeader.commandId);
+	file.SetRegister32((prefix + STATE_PACKET_HEADER_OPTIONAL).c_str(),   packetHeader.optional);
 }
 
 void CSIF::LoadState_Header(const std::string& prefix, const CStructFile& file, SIFCMDHEADER& packetHeader)
 {
-	packetHeader.size		= file.GetRegister32((prefix + STATE_PACKET_HEADER_SIZE).c_str());
-	packetHeader.dest		= file.GetRegister32((prefix + STATE_PACKET_HEADER_DEST).c_str());
-	packetHeader.commandId	= file.GetRegister32((prefix + STATE_PACKET_HEADER_CID).c_str());
-	packetHeader.optional	= file.GetRegister32((prefix + STATE_PACKET_HEADER_OPTIONAL).c_str());
+	packetHeader.packetSize = file.GetRegister32((prefix + STATE_PACKET_HEADER_PACKETSIZE).c_str());
+	packetHeader.destSize   = file.GetRegister32((prefix + STATE_PACKET_HEADER_DESTSIZE).c_str());
+	packetHeader.dest       = file.GetRegister32((prefix + STATE_PACKET_HEADER_DEST).c_str());
+	packetHeader.commandId  = file.GetRegister32((prefix + STATE_PACKET_HEADER_CID).c_str());
+	packetHeader.optional   = file.GetRegister32((prefix + STATE_PACKET_HEADER_OPTIONAL).c_str());
 }
 
 void CSIF::SaveState_RpcCall(CStructFile& file, const SIFRPCCALL& call)
@@ -386,12 +389,12 @@ void CSIF::LoadState_RequestEnd(const CStructFile& file, SIFRPCREQUESTEND& reque
 //SIF Commands
 /////////////////////////////////////////////////////////
 
-void CSIF::Cmd_SetEERecvAddr(SIFCMDHEADER* hdr)
+void CSIF::Cmd_SetEERecvAddr(const SIFCMDHEADER* hdr)
 {
 	assert(0);
 }
 
-void CSIF::Cmd_Initialize(SIFCMDHEADER* hdr)
+void CSIF::Cmd_Initialize(const SIFCMDHEADER* hdr)
 {
 	struct INIT
 	{
@@ -399,27 +402,25 @@ void CSIF::Cmd_Initialize(SIFCMDHEADER* hdr)
 		uint32			nEEAddress;
 	};
 
-	INIT* pInit = reinterpret_cast<INIT*>(hdr);
-
-	if(pInit->Header.optional == 0)
+	auto init = reinterpret_cast<const INIT*>(hdr);
+	if(init->Header.optional == 0)
 	{
-		m_nEERecvAddr =  pInit->nEEAddress;
+		m_nEERecvAddr =  init->nEEAddress;
 		m_nEERecvAddr &= (PS2::EE_RAM_SIZE - 1);
 	}
-	else if(pInit->Header.optional == 1)
+	else if(init->Header.optional == 1)
 	{
 		//If 'optional' is set to 1, and we need to disregard the address received and send a command back...
 		//Not sure about this though (seems to be used by SifInitRpc)
 
-		SIFSETSREG SReg;
-		SReg.header.commandId = SIF_CMD_SETSREG;
-		SReg.header.size      = sizeof(SIFSETSREG);
-		SReg.header.dest      = 0;
-		SReg.header.optional  = 0;
-		SReg.index            = 0;    //Should be SIF_SREG_RPCINIT
-		SReg.value            = 1;
+		SIFSETSREG sreg;
+		memset(&sreg, 0, sizeof(SIFSETSREG));
+		sreg.header.commandId  = SIF_CMD_SETSREG;
+		sreg.header.packetSize = sizeof(SIFSETSREG);
+		sreg.index             = 0;    //Should be SIF_SREG_RPCINIT
+		sreg.value             = 1;
 
-		SendPacket(&SReg, sizeof(SIFSETSREG));
+		SendPacket(&sreg, sizeof(SIFSETSREG));
 	}
 	else
 	{
@@ -427,24 +428,24 @@ void CSIF::Cmd_Initialize(SIFCMDHEADER* hdr)
 	}
 }
 
-void CSIF::Cmd_Bind(SIFCMDHEADER* hdr)
+void CSIF::Cmd_Bind(const SIFCMDHEADER* hdr)
 {
-	auto bind = reinterpret_cast<SIFRPCBIND*>(hdr);
+	auto bind = reinterpret_cast<const SIFRPCBIND*>(hdr);
 
 	SIFRPCREQUESTEND rend;
 	memset(&rend, 0, sizeof(SIFRPCREQUESTEND));
-	rend.header.size		= sizeof(SIFRPCREQUESTEND);
-	rend.header.dest		= hdr->dest;
-	rend.header.commandId	= SIF_CMD_REND;
-	rend.header.optional	= 0;
-	rend.recordId			= bind->recordId;
-	rend.packetAddr			= bind->packetAddr;
-	rend.rpcId				= bind->rpcId;
-	rend.clientDataAddr		= bind->clientDataAddr;
-	rend.commandId			= SIF_CMD_BIND;
-	rend.serverDataAddr		= bind->serverId;
-	rend.buffer				= RPC_RECVADDR;
-	rend.cbuffer			= 0xDEADCAFE;
+	rend.header.packetSize  = sizeof(SIFRPCREQUESTEND);
+	rend.header.dest        = hdr->dest;
+	rend.header.commandId   = SIF_CMD_REND;
+	rend.header.optional    = 0;
+	rend.recordId           = bind->recordId;
+	rend.packetAddr         = bind->packetAddr;
+	rend.rpcId              = bind->rpcId;
+	rend.clientDataAddr     = bind->clientDataAddr;
+	rend.commandId          = SIF_CMD_BIND;
+	rend.serverDataAddr     = bind->serverId;
+	rend.buffer             = RPC_RECVADDR;
+	rend.cbuffer            = 0xDEADCAFE;
 
 	CLog::GetInstance().Print(LOG_NAME, "Bound client data (0x%0.8X) with server id 0x%0.8X.\r\n", bind->clientDataAddr, bind->serverId);
 
@@ -460,9 +461,9 @@ void CSIF::Cmd_Bind(SIFCMDHEADER* hdr)
 	}
 }
 
-void CSIF::Cmd_Call(SIFCMDHEADER* hdr)
+void CSIF::Cmd_Call(const SIFCMDHEADER* hdr)
 {
-	auto call = reinterpret_cast<SIFRPCCALL*>(hdr);
+	auto call = reinterpret_cast<const SIFRPCCALL*>(hdr);
 	bool sendReply = true;
 
 	CLog::GetInstance().Print(LOG_NAME, "Calling function 0x%0.8X of module 0x%0.8X.\r\n", call->rpcNumber, call->serverDataAddr);
@@ -486,15 +487,15 @@ void CSIF::Cmd_Call(SIFCMDHEADER* hdr)
 	{
 		SIFRPCREQUESTEND rend;
 		memset(&rend, 0, sizeof(SIFRPCREQUESTEND));
-		rend.header.size		= sizeof(SIFRPCREQUESTEND);
-		rend.header.dest		= hdr->dest;
-		rend.header.commandId	= SIF_CMD_REND;
-		rend.header.optional	= 0;
-		rend.recordId			= call->recordId;
-		rend.packetAddr			= call->packetAddr;
-		rend.rpcId				= call->rpcId;
-		rend.clientDataAddr		= call->clientDataAddr;
-		rend.commandId			= SIF_CMD_CALL;
+		rend.header.packetSize  = sizeof(SIFRPCREQUESTEND);
+		rend.header.dest        = hdr->dest;
+		rend.header.commandId   = SIF_CMD_REND;
+		rend.header.optional    = 0;
+		rend.recordId           = call->recordId;
+		rend.packetAddr         = call->packetAddr;
+		rend.rpcId              = call->rpcId;
+		rend.clientDataAddr     = call->clientDataAddr;
+		rend.commandId          = SIF_CMD_CALL;
 
 		if(sendReply)
 		{
@@ -513,9 +514,9 @@ void CSIF::Cmd_Call(SIFCMDHEADER* hdr)
 	}
 }
 
-void CSIF::Cmd_GetOtherData(SIFCMDHEADER* hdr)
+void CSIF::Cmd_GetOtherData(const SIFCMDHEADER* hdr)
 {
-	auto otherData = reinterpret_cast<SIFRPCOTHERDATA*>(hdr);
+	auto otherData = reinterpret_cast<const SIFRPCOTHERDATA*>(hdr);
 
 	CLog::GetInstance().Print(LOG_NAME, "GetOtherData(dstPtr = 0x%0.8X, srcPtr = 0x%0.8X, size = 0x%0.8X);\r\n",
 		otherData->dstPtr, otherData->srcPtr, otherData->size);
@@ -528,15 +529,15 @@ void CSIF::Cmd_GetOtherData(SIFCMDHEADER* hdr)
 	{
 		SIFRPCREQUESTEND rend;
 		memset(&rend, 0, sizeof(SIFRPCREQUESTEND));
-		rend.header.size		= sizeof(SIFRPCREQUESTEND);
-		rend.header.dest		= hdr->dest;
-		rend.header.commandId	= SIF_CMD_REND;
-		rend.header.optional	= 0;
-		rend.recordId			= otherData->recordId;
-		rend.packetAddr			= otherData->packetAddr;
-		rend.rpcId				= otherData->rpcId;
-		rend.clientDataAddr		= otherData->receiveDataAddr;
-		rend.commandId			= SIF_CMD_OTHERDATA;
+		rend.header.packetSize  = sizeof(SIFRPCREQUESTEND);
+		rend.header.dest        = hdr->dest;
+		rend.header.commandId   = SIF_CMD_REND;
+		rend.header.optional    = 0;
+		rend.recordId           = otherData->recordId;
+		rend.packetAddr         = otherData->packetAddr;
+		rend.rpcId              = otherData->rpcId;
+		rend.clientDataAddr     = otherData->receiveDataAddr;
+		rend.commandId          = SIF_CMD_OTHERDATA;
 
 		SendPacket(&rend, sizeof(SIFRPCREQUESTEND));
 	}
@@ -552,7 +553,11 @@ void CSIF::SendCallReply(uint32 serverId, const void* returnData)
 	if(requestInfo.call.recv != 0 && returnData != nullptr)
 	{
 		uint32 dstPtr = requestInfo.call.recv & (PS2::EE_RAM_SIZE - 1);
-		memcpy(m_eeRam + dstPtr, returnData, requestInfo.call.recvSize);
+		assert((dstPtr & 0x0F) == 0);
+		//Size needs to be a multiple of 4
+		assert((requestInfo.call.recvSize & 0x03) == 0);
+		uint32 dstSize = (requestInfo.call.recvSize + 0x03) & ~0x03;
+		memcpy(m_eeRam + dstPtr, returnData, dstSize);
 	}
 	SendPacket(&requestInfo.reply, sizeof(SIFRPCREQUESTEND));
 	m_callReplies.erase(replyIterator);

@@ -8,6 +8,14 @@ class CGsCachedArea
 public:
 	typedef uint64 DirtyPageHolder;
 
+	struct PageRect
+	{
+		uint32 x;
+		uint32 y;
+		uint32 width;
+		uint32 height;
+	};
+
 	enum
 	{
 		MAX_DIRTYPAGES_SECTIONS = 8,
@@ -18,7 +26,9 @@ public:
 
 	void						SetArea(uint32 psm, uint32 bufPtr, uint32 bufWidth, uint32 height);
 
-	std::pair<uint32, uint32>	GetPageRect() const;
+	PageRect					GetAreaPageRect() const;
+	PageRect					GetDirtyPageRect() const;
+
 	uint32						GetPageCount() const;
 	uint32						GetSize() const;
 
@@ -27,6 +37,7 @@ public:
 	void						SetPageDirty(uint32);
 	bool						HasDirtyPages() const;
 	void						ClearDirtyPages();
+	void						ClearDirtyPages(const PageRect&);
 
 private:
 	uint32						m_psm = 0;

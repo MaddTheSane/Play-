@@ -19,14 +19,17 @@ struct REGISTER_PIPELINE
 enum
 {
 	//Must be a power of 2
-	MACFLAG_PIPELINE_SLOTS = 8,
+	FLAG_PIPELINE_SLOTS = 8,
 };
 
-struct MACFLAG_PIPELINE
+//Invariants:
+//- Pipe times are sorted when iterating from index to index + PIPELINE_SLOTS
+//- The value at index - 1 is the latest value
+struct FLAG_PIPELINE
 {
 	uint32		index;
-	uint32		values[MACFLAG_PIPELINE_SLOTS];
-	uint32		pipeTimes[MACFLAG_PIPELINE_SLOTS];
+	uint32		values[FLAG_PIPELINE_SLOTS];
+	uint32		pipeTimes[FLAG_PIPELINE_SLOTS];
 };
 
 enum
@@ -86,16 +89,17 @@ __attribute__((aligned(16)))
 	uint32				nCOP2I;
 	uint32				nCOP2P;
 	uint32				nCOP2R;
-	uint32				nCOP2CF;
-	uint32				nCOP2MF;
-	uint32				nCOP2SF;
+	uint32				nCOP2CF;    //Mirror of CLIP flag (computed with values from pipeClip)
+	uint32				nCOP2MF;    //Mirror of MACflag (computed with values from pipeMac)
+	uint32				nCOP2SF;    //Sticky values of sign and zero MACflag (ie.: SxSySzSw ZxZyZzZw)
 	uint32				nCOP2T;
 
 	uint32				nCOP2VI[16];
 
 	REGISTER_PIPELINE	pipeQ;
 	REGISTER_PIPELINE	pipeP;
-	MACFLAG_PIPELINE	pipeMac;
+	FLAG_PIPELINE		pipeMac;
+	FLAG_PIPELINE		pipeClip;
 
 	uint32				pipeTime;
 

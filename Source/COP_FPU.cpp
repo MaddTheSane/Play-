@@ -85,6 +85,11 @@ void CCOP_FPU::PushCCBit(uint32 mask)
 //00
 void CCOP_FPU::MFC1()
 {
+	if(m_ft == 0)
+	{
+		return;
+	}
+
 	m_codeGen->PushRel(offsetof(CMIPS, m_State.nCOP1[m_fs]));
 	if(m_regSize == MIPS_REGSIZE_64)
 	{
@@ -98,6 +103,11 @@ void CCOP_FPU::MFC1()
 //02
 void CCOP_FPU::CFC1()
 {
+	if(m_ft == 0)
+	{
+		return;
+	}
+
 	if(m_fs < 16)
 	{
 		//Implementation and Revision Register
@@ -135,7 +145,18 @@ void CCOP_FPU::CTC1()
 {
 	if(m_fs == 31)
 	{
+		//Only condition code and status flags are writable
+		static const uint32 FCSR_WRITE_MASK = 0x0083C078;
+
 		m_codeGen->PushRel(offsetof(CMIPS, m_State.nGPR[m_ft].nV[0]));
+		m_codeGen->PushCst(FCSR_WRITE_MASK);
+		m_codeGen->And();
+
+		m_codeGen->PushRel(offsetof(CMIPS, m_State.nFCSR));
+		m_codeGen->PushCst(~FCSR_WRITE_MASK);
+		m_codeGen->And();
+
+		m_codeGen->Or();
 		m_codeGen->PullRel(offsetof(CMIPS, m_State.nFCSR));
 	}
 	else

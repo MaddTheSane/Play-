@@ -15,8 +15,8 @@ public:
 									~CVFSManagerWnd();
 
 protected:
-	long							OnCommand(unsigned short, unsigned short, HWND);
-	long							OnNotify(WPARAM, NMHDR*);
+	long							OnCommand(unsigned short, unsigned short, HWND) override;
+	LRESULT							OnNotify(WPARAM, NMHDR*) override;
 
 private:
 	class CDevice

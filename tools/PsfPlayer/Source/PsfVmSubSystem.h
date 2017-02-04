@@ -1,5 +1,4 @@
-#ifndef _PSFVMSUBSYSTEM_H_
-#define _PSFVMSUBSYSTEM_H_
+#pragma once
 
 #include <memory>
 #include "MIPS.h"
@@ -8,13 +7,16 @@
 #include "SoundHandler.h"
 #include <boost/signals2.hpp>
 
+class CMipsExecutor;
+
 class CPsfVmSubSystem
 {
 public:
-	virtual								~CPsfVmSubSystem()	{}
+	virtual								~CPsfVmSubSystem() = default;
 
 	virtual void						Reset() = 0;
 	virtual CMIPS&						GetCpu() = 0;
+	virtual CMipsExecutor&				GetCpuExecutor() = 0;
 	virtual uint8*						GetRam() = 0;
 	virtual uint8*						GetSpr() = 0;
 	virtual Iop::CSpuBase&				GetSpuCore(unsigned int) = 0;
@@ -33,5 +35,3 @@ public:
 };
 
 typedef std::shared_ptr<CPsfVmSubSystem> PsfVmSubSystemPtr;
-
-#endif

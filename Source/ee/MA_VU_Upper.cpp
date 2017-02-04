@@ -129,7 +129,7 @@ void CMA_VU::CUpper::MULbc()
 //1C
 void CMA_VU::CUpper::MULq()
 {
-	VUShared::MULq(m_codeGen, m_nDest, m_nFD, m_nFS, m_nAddress);
+	VUShared::MULq(m_codeGen, m_nDest, m_nFD, m_nFS, m_relativePipeTime);
 }
 
 //1D
@@ -360,6 +360,12 @@ void CMA_VU::CUpper::ABS()
 	VUShared::ABS(m_codeGen, m_nDest, m_nFT, m_nFS);
 }
 
+//09
+void CMA_VU::CUpper::MSUBAq()
+{
+	VUShared::MSUBAq(m_codeGen, m_nDest, m_nFS, m_relativePipeTime);
+}
+
 //0A
 void CMA_VU::CUpper::MADDA()
 {
@@ -437,7 +443,7 @@ void CMA_VU::CUpper::FTOI15()
 //07
 void CMA_VU::CUpper::CLIP()
 {
-	VUShared::CLIP(m_codeGen, m_nFS, m_nFT);
+	VUShared::CLIP(m_codeGen, m_nFS, m_nFT, m_relativePipeTime);
 }
 
 //08
@@ -499,7 +505,7 @@ CMA_VU::CUpper::InstructionFuncConstant CMA_VU::CUpper::m_pOpVector1[0x20] =
 	//0x00
 	&CMA_VU::CUpper::ADDAbc,		&CMA_VU::CUpper::SUBAbc,		&CMA_VU::CUpper::MADDAbc,		&CMA_VU::CUpper::MSUBAbc,		&CMA_VU::CUpper::ITOF4,			&CMA_VU::CUpper::FTOI4,			&CMA_VU::CUpper::MULAbc,		&CMA_VU::CUpper::ABS,
 	//0x08
-	&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::MADDA,			&CMA_VU::CUpper::MSUBA,			&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,
+	&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::MSUBAq,		&CMA_VU::CUpper::MADDA,			&CMA_VU::CUpper::MSUBA,			&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,
 	//0x10
 	&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,		&CMA_VU::CUpper::Illegal,
 	//0x18

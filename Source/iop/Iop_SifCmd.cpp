@@ -46,12 +46,10 @@ CSifCmd::CSifCmd(CIopBios& bios, CSifMan& sifMan, CSysmem& sysMem, uint8* ram)
 , m_ram(ram)
 {
 	m_moduleDataAddr = m_sysMem.AllocateMemory(sizeof(MODULEDATA), 0, 0);
+	memset(m_ram + m_moduleDataAddr, 0, sizeof(MODULEDATA));
 	m_trampolineAddr           = m_moduleDataAddr + offsetof(MODULEDATA, trampoline);
 	m_sendCmdExtraStructAddr   = m_moduleDataAddr + offsetof(MODULEDATA, sendCmdExtraStruct);
-	m_sregAddr                 = m_moduleDataAddr + offsetof(MODULEDATA, sreg);
-	m_sysCmdBuffer             = m_moduleDataAddr + offsetof(MODULEDATA, sysCmdBuffer);
-	m_pendingCmdBufferAddr     = m_moduleDataAddr + offsetof(MODULEDATA, pendingCmdBuffer);
-	m_pendingCmdBufferSizeAddr = m_moduleDataAddr + offsetof(MODULEDATA, pendingCmdBufferSize);
+	m_sysCmdBufferAddr         = m_moduleDataAddr + offsetof(MODULEDATA, sysCmdBuffer);
 	sifMan.SetModuleResetHandler([&] (const std::string& path) { bios.ProcessModuleReset(path); });
 	sifMan.SetCustomCommandHandler([&] (uint32 commandHeaderAddr) { ProcessCustomCommand(commandHeaderAddr); });
 	BuildExportTable();
@@ -273,7 +271,7 @@ void CSifCmd::ClearServers()
 
 void CSifCmd::BuildExportTable()
 {
-	uint32* exportTable = reinterpret_cast<uint32*>(m_ram + m_trampolineAddr);
+	auto exportTable = reinterpret_cast<uint32*>(m_ram + m_trampolineAddr);
 	*(exportTable++) = 0x41E00000;
 	*(exportTable++) = 0;
 	*(exportTable++) = MODULE_VERSION;
@@ -429,20 +427,20 @@ void CSifCmd::FinishExecRequest(uint32 serverDataAddr, uint32 returnDataAddr)
 
 void CSifCmd::FinishExecCmd()
 {
-	assert(m_executingCmd);
-	m_executingCmd = false;
+	auto moduleData = reinterpret_cast<MODULEDATA*>(m_ram + m_moduleDataAddr);
 
-	uint32 commandHeaderAddr = m_pendingCmdBufferAddr;
-	auto commandHeader = reinterpret_cast<const SIFCMDHEADER*>(m_ram + commandHeaderAddr);
+	assert(moduleData->executingCmd);
+	moduleData->executingCmd = false;
 
-	uint8 commandPacketSize = static_cast<uint8>(commandHeader->size & 0xFF);
-	auto pendingCmdBuffer = m_ram + m_pendingCmdBufferAddr;
-	auto pendingCmdBufferSize = reinterpret_cast<uint32*>(m_ram + m_pendingCmdBufferSizeAddr);
-	assert(*pendingCmdBufferSize >= commandPacketSize);
-	memmove(pendingCmdBuffer, pendingCmdBuffer + commandPacketSize, PENDING_CMD_BUFFER_SIZE - *pendingCmdBufferSize);
-	(*pendingCmdBufferSize) -= commandPacketSize;
+	auto pendingCmdBuffer = moduleData->pendingCmdBuffer;
+	auto commandHeader = reinterpret_cast<const SIFCMDHEADER*>(pendingCmdBuffer);
 
-	if(*pendingCmdBufferSize > 0)
+	uint8 commandPacketSize = commandHeader->packetSize;
+	assert(moduleData->pendingCmdBufferSize >= commandPacketSize);
+	memmove(pendingCmdBuffer, pendingCmdBuffer + commandPacketSize, PENDING_CMD_BUFFER_SIZE - moduleData->pendingCmdBufferSize);
+	moduleData->pendingCmdBufferSize -= commandPacketSize;
+
+	if(moduleData->pendingCmdBufferSize > 0)
 	{
 		ProcessNextDynamicCommand();
 	}
@@ -456,6 +454,10 @@ void CSifCmd::ProcessCustomCommand(uint32 commandHeaderAddr)
 	case SIF_CMD_SETSREG:
 		ProcessSetSreg(commandHeaderAddr);
 		break;
+	case 0x80000004:
+		//No clue what this is used for, but seems to be used after "WriteToIop" is used.
+		//Could be FlushCache or something like that
+		break;
 	case SIF_CMD_REND:
 		ProcessRpcRequestEnd(commandHeaderAddr);
 		break;
@@ -468,10 +470,11 @@ void CSifCmd::ProcessCustomCommand(uint32 commandHeaderAddr)
 void CSifCmd::ProcessSetSreg(uint32 commandHeaderAddr)
 {
 	auto setSreg = reinterpret_cast<const SIFSETSREG*>(m_ram + commandHeaderAddr);
-	assert(setSreg->header.size == sizeof(SIFSETSREG));
+	assert(setSreg->header.packetSize == sizeof(SIFSETSREG));
 	assert(setSreg->index < MAX_SREG);
 	if(setSreg->index >= MAX_SREG) return;
-	reinterpret_cast<uint32*>(m_ram + m_sregAddr)[setSreg->index] = setSreg->value;
+	auto moduleData = reinterpret_cast<MODULEDATA*>(m_ram + m_moduleDataAddr);
+	moduleData->sreg[setSreg->index] = setSreg->value;
 }
 
 void CSifCmd::ProcessRpcRequestEnd(uint32 commandHeaderAddr)
@@ -498,30 +501,29 @@ void CSifCmd::ProcessRpcRequestEnd(uint32 commandHeaderAddr)
 	//Unlock/delete semaphore
 	{
 		assert(clientData->header.semaId != 0);
-		int32 result = 0;
+		int32 result = CIopBios::KERNEL_RESULT_OK;
 		result = m_bios.SignalSemaphore(clientData->header.semaId, true);
-		assert(result == 0);
+		assert(result == CIopBios::KERNEL_RESULT_OK);
 		result = m_bios.DeleteSemaphore(clientData->header.semaId);
-		assert(result == 0);
+		assert(result == CIopBios::KERNEL_RESULT_OK);
 		clientData->header.semaId = 0;
 	}
 }
 
 void CSifCmd::ProcessDynamicCommand(uint32 commandHeaderAddr)
 {
+	auto moduleData = reinterpret_cast<MODULEDATA*>(m_ram + m_moduleDataAddr);
 	auto commandHeader = reinterpret_cast<const SIFCMDHEADER*>(m_ram + commandHeaderAddr);
 
-	uint8 commandPacketSize = static_cast<uint8>(commandHeader->size & 0xFF);
-	auto pendingCmdBuffer = m_ram + m_pendingCmdBufferAddr;
-	auto pendingCmdBufferSize = reinterpret_cast<uint32*>(m_ram + m_pendingCmdBufferSizeAddr);
-	assert((*pendingCmdBufferSize + commandPacketSize) <= PENDING_CMD_BUFFER_SIZE);
+	uint8 commandPacketSize = commandHeader->packetSize;
+	assert((moduleData->pendingCmdBufferSize + commandPacketSize) <= PENDING_CMD_BUFFER_SIZE);
 
-	if((*pendingCmdBufferSize + commandPacketSize) <= PENDING_CMD_BUFFER_SIZE)
+	if((moduleData->pendingCmdBufferSize + commandPacketSize) <= PENDING_CMD_BUFFER_SIZE)
 	{
-		memcpy(pendingCmdBuffer + *pendingCmdBufferSize, commandHeader, commandPacketSize);
-		(*pendingCmdBufferSize) += commandPacketSize;
+		memcpy(moduleData->pendingCmdBuffer + moduleData->pendingCmdBufferSize, commandHeader, commandPacketSize);
+		moduleData->pendingCmdBufferSize += commandPacketSize;
 
-		if(!m_executingCmd)
+		if(!moduleData->executingCmd)
 		{
 			ProcessNextDynamicCommand();
 		}
@@ -530,19 +532,21 @@ void CSifCmd::ProcessDynamicCommand(uint32 commandHeaderAddr)
 
 void CSifCmd::ProcessNextDynamicCommand()
 {
-	assert(!m_executingCmd);
-	m_executingCmd = true;
+	auto moduleData = reinterpret_cast<MODULEDATA*>(m_ram + m_moduleDataAddr);
 
-	uint32 commandHeaderAddr = m_pendingCmdBufferAddr;
+	assert(!moduleData->executingCmd);
+	moduleData->executingCmd = true;
+
+	uint32 commandHeaderAddr = m_moduleDataAddr + offsetof(MODULEDATA, pendingCmdBuffer);
 	auto commandHeader = reinterpret_cast<const SIFCMDHEADER*>(m_ram + commandHeaderAddr);
 	bool isSystemCommand = (commandHeader->commandId & SYSTEM_COMMAND_ID) != 0;
 	uint32 cmd = commandHeader->commandId & ~SYSTEM_COMMAND_ID;
-	uint32 cmdBuffer = isSystemCommand ? m_sysCmdBuffer : m_usrCmdBuffer;
-	uint32 cmdBufferLen = isSystemCommand ? MAX_SYSTEM_COMMAND : m_usrCmdBufferLen;
+	uint32 cmdBufferAddr = isSystemCommand ? m_sysCmdBufferAddr : moduleData->usrCmdBufferAddr;
+	uint32 cmdBufferLen = isSystemCommand ? MAX_SYSTEM_COMMAND : moduleData->usrCmdBufferLen;
 
-	if((cmdBuffer != 0) && (cmd < cmdBufferLen))
+	if((cmdBufferAddr != 0) && (cmd < cmdBufferLen))
 	{
-		const auto& cmdDataEntry = reinterpret_cast<SIFCMDDATA*>(m_ram + cmdBuffer)[cmd];
+		const auto& cmdDataEntry = reinterpret_cast<SIFCMDDATA*>(m_ram + cmdBufferAddr)[cmd];
 
 		CLog::GetInstance().Print(LOG_NAME, "Calling SIF command handler for command 0x%0.8X at 0x%0.8X with data 0x%0.8X.\r\n", 
 			commandHeader->commandId, cmdDataEntry.sifCmdHandler, cmdDataEntry.data);
@@ -577,18 +581,20 @@ int32 CSifCmd::SifGetSreg(uint32 regIndex)
 	{
 		return 0;
 	}
-	uint32 result = reinterpret_cast<uint32*>(m_ram + m_sregAddr)[regIndex];
+	auto moduleData = reinterpret_cast<const MODULEDATA*>(m_ram + m_moduleDataAddr);
+	uint32 result = moduleData->sreg[regIndex];
 	return result;
 }
 
-uint32 CSifCmd::SifSetCmdBuffer(uint32 data, uint32 length)
+uint32 CSifCmd::SifSetCmdBuffer(uint32 cmdBufferAddr, uint32 length)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_SIFSETCMDBUFFER "(data = 0x%0.8X, length = %d);\r\n",
-		data, length);
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_SIFSETCMDBUFFER "(cmdBufferAddr = 0x%0.8X, length = %d);\r\n",
+		cmdBufferAddr, length);
 
-	uint32 originalBuffer = m_usrCmdBuffer;
-	m_usrCmdBuffer = data;
-	m_usrCmdBufferLen = length;
+	auto moduleData = reinterpret_cast<MODULEDATA*>(m_ram + m_moduleDataAddr);
+	uint32 originalBuffer = moduleData->usrCmdBufferAddr;
+	moduleData->usrCmdBufferAddr = cmdBufferAddr;
+	moduleData->usrCmdBufferLen = length;
 
 	return originalBuffer;
 }
@@ -598,14 +604,15 @@ void CSifCmd::SifAddCmdHandler(uint32 pos, uint32 handler, uint32 data)
 	CLog::GetInstance().Print(LOG_NAME, FUNCTION_SIFADDCMDHANDLER "(pos = 0x%0.8X, handler = 0x%0.8X, data = 0x%0.8X);\r\n",
 		pos, handler, data);
 
+	auto moduleData = reinterpret_cast<const MODULEDATA*>(m_ram + m_moduleDataAddr);
 	bool isSystemCommand = (pos & SYSTEM_COMMAND_ID) != 0;
 	uint32 cmd = pos & ~SYSTEM_COMMAND_ID;
-	uint32 cmdBuffer = isSystemCommand ? m_sysCmdBuffer : m_usrCmdBuffer;
-	uint32 cmdBufferLen = isSystemCommand ? MAX_SYSTEM_COMMAND : m_usrCmdBufferLen;
+	uint32 cmdBufferAddr = isSystemCommand ? m_sysCmdBufferAddr : moduleData->usrCmdBufferAddr;
+	uint32 cmdBufferLen = isSystemCommand ? MAX_SYSTEM_COMMAND : moduleData->usrCmdBufferLen;
 
-	if((cmdBuffer != 0) && (cmd < cmdBufferLen))
+	if((cmdBufferAddr != 0) && (cmd < cmdBufferLen))
 	{
-		auto& cmdDataEntry = reinterpret_cast<SIFCMDDATA*>(m_ram + cmdBuffer)[cmd];
+		auto& cmdDataEntry = reinterpret_cast<SIFCMDDATA*>(m_ram + cmdBufferAddr)[cmd];
 		cmdDataEntry.sifCmdHandler = handler;
 		cmdDataEntry.data = data;
 	}
@@ -622,15 +629,18 @@ uint32 CSifCmd::SifSendCmd(uint32 commandId, uint32 packetPtr, uint32 packetSize
 
 	assert(packetSize >= 0x10);
 
-	uint8* packetData = m_ram + packetPtr;
+	auto packetData = m_ram + packetPtr;
 	auto header = reinterpret_cast<SIFCMDHEADER*>(packetData);
-	header->commandId = commandId;
-	header->size = packetSize;
-	header->dest = 0;
-	m_sifMan.SendPacket(packetData, packetSize);
+	header->commandId  = commandId;
+	header->packetSize = packetSize;
+	header->destSize   = 0;
+	header->dest       = 0;
 
 	if(sizeExtra != 0 && srcExtraPtr != 0 && dstExtraPtr != 0)
 	{
+		header->destSize = sizeExtra;
+		header->dest     = dstExtraPtr;
+
 		auto dmaReg = reinterpret_cast<SIFDMAREG*>(m_ram + m_sendCmdExtraStructAddr);
 		dmaReg->srcAddr = srcExtraPtr;
 		dmaReg->dstAddr = dstExtraPtr;
@@ -639,6 +649,8 @@ uint32 CSifCmd::SifSendCmd(uint32 commandId, uint32 packetPtr, uint32 packetSize
 
 		m_sifMan.SifSetDma(m_sendCmdExtraStructAddr, 1);
 	}
+
+	m_sifMan.SendPacket(packetData, packetSize);
 
 	return 1;
 }
@@ -654,14 +666,16 @@ uint32 CSifCmd::SifBindRpc(uint32 clientDataAddr, uint32 serverId, uint32 mode)
 	auto clientData = reinterpret_cast<SIFRPCCLIENTDATA*>(m_ram + clientDataAddr);
 	clientData->serverDataAddr = serverId;
 	clientData->header.semaId = m_bios.CreateSemaphore(0, 1);
-	m_bios.WaitSemaphore(clientData->header.semaId);
+	int32 result = CIopBios::KERNEL_RESULT_OK;
+	result = m_bios.WaitSemaphore(clientData->header.semaId);
+	assert(result == CIopBios::KERNEL_RESULT_OK);
 
 	SIFRPCBIND bindPacket;
 	memset(&bindPacket, 0, sizeof(SIFRPCBIND));
-	bindPacket.header.commandId	= SIF_CMD_BIND;
-	bindPacket.header.size		= sizeof(SIFRPCBIND);
-	bindPacket.serverId			= serverId;
-	bindPacket.clientDataAddr	= clientDataAddr;
+	bindPacket.header.commandId  = SIF_CMD_BIND;
+	bindPacket.header.packetSize = sizeof(SIFRPCBIND);
+	bindPacket.serverId          = serverId;
+	bindPacket.clientDataAddr    = clientDataAddr;
 	m_sifMan.SendPacket(&bindPacket, sizeof(bindPacket));
 
 	return 0;
@@ -691,29 +705,33 @@ void CSifCmd::SifCallRpc(CMIPS& context)
 	clientData->endFctPtr = endFctAddr;
 	clientData->endParam = endParam;
 	clientData->header.semaId = m_bios.CreateSemaphore(0, 1);
-	m_bios.WaitSemaphore(clientData->header.semaId);
+	int32 result = CIopBios::KERNEL_RESULT_OK;
+	result = m_bios.WaitSemaphore(clientData->header.semaId);
+	assert(result == CIopBios::KERNEL_RESULT_OK);
 
 	{
 		auto dmaReg = reinterpret_cast<SIFDMAREG*>(m_ram + m_sendCmdExtraStructAddr);
 		dmaReg->srcAddr = sendAddr;
 		dmaReg->dstAddr = clientData->buffPtr;
-		dmaReg->size = sendSize;
-		dmaReg->flags = 0;
+		dmaReg->size    = sendSize;
+		dmaReg->flags   = 0;
 
 		m_sifMan.SifSetDma(m_sendCmdExtraStructAddr, 1);
 	}
 
 	SIFRPCCALL callPacket;
 	memset(&callPacket, 0, sizeof(SIFRPCCALL));
-	callPacket.header.commandId	= SIF_CMD_CALL;
-	callPacket.header.size		= sizeof(SIFRPCCALL);
-	callPacket.rpcNumber		= rpcNumber;
-	callPacket.sendSize			= sendSize;
-	callPacket.recv				= recvAddr;
-	callPacket.recvSize			= recvSize;
-	callPacket.recvMode			= 1;
-	callPacket.clientDataAddr	= clientDataAddr;
-	callPacket.serverDataAddr	= clientData->serverDataAddr;
+	callPacket.header.commandId  = SIF_CMD_CALL;
+	callPacket.header.packetSize = sizeof(SIFRPCCALL);
+	callPacket.header.destSize   = sendSize;
+	callPacket.header.dest       = clientData->buffPtr;
+	callPacket.rpcNumber         = rpcNumber;
+	callPacket.sendSize          = sendSize;
+	callPacket.recv              = recvAddr;
+	callPacket.recvSize          = recvSize;
+	callPacket.recvMode          = 1;
+	callPacket.clientDataAddr    = clientDataAddr;
+	callPacket.serverDataAddr    = clientData->serverDataAddr;
 
 	m_sifMan.SendPacket(&callPacket, sizeof(callPacket));
 
@@ -736,14 +754,14 @@ void CSifCmd::SifRegisterRpc(CMIPS& context)
 	bool moduleRegistered = m_sifMan.IsModuleRegistered(serverId);
 	if(!moduleRegistered)
 	{
-		CSifDynamic* module = new CSifDynamic(*this, serverDataAddr);
+		auto module = new CSifDynamic(*this, serverDataAddr);
 		m_servers.push_back(module);
 		m_sifMan.RegisterModule(serverId, module);
 	}
 
 	if(serverDataAddr != 0)
 	{
-		SIFRPCSERVERDATA* serverData = reinterpret_cast<SIFRPCSERVERDATA*>(&m_ram[serverDataAddr]);
+		auto serverData = reinterpret_cast<SIFRPCSERVERDATA*>(&m_ram[serverDataAddr]);
 		serverData->serverId	= serverId;
 		serverData->function	= function;
 		serverData->buffer		= buffer;
