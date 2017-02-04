@@ -69,13 +69,16 @@
 		NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core,
 		NSOpenGLPFADoubleBuffer, YES,
 		NSOpenGLPFADepthSize, 24,
+		NSOpenGLPFAAccelerated,
 		0
 	};
 		
-	NSOpenGLPixelFormat* pixelFormat = [[[NSOpenGLPixelFormat alloc] initWithAttributes: pixelFormatAttributes] autorelease];
-	NSOpenGLContext* context = [[[NSOpenGLContext alloc] initWithFormat: pixelFormat shareContext:nil] autorelease];
+	NSOpenGLPixelFormat* pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes: pixelFormatAttributes];
+	NSOpenGLContext* context = [[NSOpenGLContext alloc] initWithFormat: pixelFormat shareContext:nil];
 	[outputWindowController.openGlView setPixelFormat: pixelFormat];
 	[outputWindowController.openGlView setOpenGLContext: context];
+	[pixelFormat release];
+	[context release];
 }
 
 -(void)setupSoundHandler
