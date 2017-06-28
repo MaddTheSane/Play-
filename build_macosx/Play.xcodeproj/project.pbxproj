@@ -542,7 +542,7 @@
 			files = (
 				70CCA2711CB1E965006F99CA /* OpenAL.framework in Frameworks */,
 				7068498B151E891200C9574F /* libbz2.tbd in Frameworks */,
-				7068497D151E885200C9574F /* tbd in Frameworks */,
+				7068497D151E885200C9574F /* libz.tbd in Frameworks */,
 				70684979151E882000C9574F /* libCodeGen.a in Frameworks */,
 				7E4C15811517E6F800357777 /* libFramework.a in Frameworks */,
 				7E7832AC1516710A00C04C62 /* Cocoa.framework in Frameworks */,
