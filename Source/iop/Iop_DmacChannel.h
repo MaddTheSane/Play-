@@ -1,8 +1,9 @@
-#ifndef _IOP_DMACCHANNEL_H_
-#define _IOP_DMACCHANNEL_H_
+#pragma once
 
 #include "Convertible.h"
 #include "Types.h"
+#include "zip/ZipArchiveWriter.h"
+#include "zip/ZipArchiveReader.h"
 #include <functional>
 
 namespace Iop
@@ -43,7 +44,10 @@ namespace Iop
 			static_assert(sizeof(CHCR) == sizeof(uint32), "Size of CHCR struct must be 4 bytes.");
 
 									CChannel(uint32, unsigned int, CDmac&);
-			virtual					~CChannel();
+			virtual					~CChannel() = default;
+
+			void					SaveState(Framework::CZipArchiveWriter&);
+			void					LoadState(Framework::CZipArchiveReader&);
 
 			void					Reset();
 			void					SetReceiveFunction(const ReceiveFunctionType&);
@@ -62,5 +66,3 @@ namespace Iop
 		};
 	}
 }
-
-#endif

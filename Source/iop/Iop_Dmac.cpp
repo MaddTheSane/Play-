@@ -1,9 +1,14 @@
 #include <assert.h>
 #include "Iop_Dmac.h"
 #include "Iop_Intc.h"
+#include "../RegisterStateFile.h"
 #include "../Log.h"
 
 #define LOG_NAME ("iop_dmac")
+
+#define STATE_REGS_XML      ("iop_dmac/regs.xml")
+#define STATE_REGS_DPCR     ("DPCR")
+#define STATE_REGS_DICR     ("DICR")
 
 using namespace Iop;
 using namespace Iop::Dmac;
@@ -18,11 +23,6 @@ CDmac::CDmac(uint8* ram, CIntc& intc)
 	m_channel[4] = &m_channelSpu0;
 	m_channel[8] = &m_channelSpu1;
 	Reset();
-}
-
-CDmac::~CDmac()
-{
-
 }
 
 void CDmac::Reset()
@@ -149,6 +149,39 @@ uint32 CDmac::WriteRegister(uint32 address, uint32 value)
 	return 0;
 }
 
+void CDmac::LoadState(Framework::CZipArchiveReader& archive)
+{
+	{
+		auto registerFile = CRegisterStateFile(*archive.BeginReadFile(STATE_REGS_XML));
+		m_DPCR = registerFile.GetRegister32(STATE_REGS_DPCR);
+		m_DICR = registerFile.GetRegister32(STATE_REGS_DICR);
+	}
+
+	for(unsigned int i = 0; i < MAX_CHANNEL; i++)
+	{
+		auto channel = m_channel[i];
+		if(!channel) continue;
+		channel->LoadState(archive);
+	}
+}
+
+void CDmac::SaveState(Framework::CZipArchiveWriter& archive)
+{
+	{
+		auto registerFile = new CRegisterStateFile(STATE_REGS_XML);
+		registerFile->SetRegister32(STATE_REGS_DPCR, m_DPCR);
+		registerFile->SetRegister32(STATE_REGS_DICR, m_DICR);
+		archive.InsertFile(registerFile);
+	}
+
+	for(unsigned int i = 0; i < MAX_CHANNEL; i++)
+	{
+		auto channel = m_channel[i];
+		if(!channel) continue;
+		channel->SaveState(archive);
+	}
+}
+
 void CDmac::LogRead(uint32 address)
 {
 	switch(address)
@@ -166,13 +199,13 @@ void CDmac::LogRead(uint32 address)
 			switch(registerId)
 			{
 			case CChannel::REG_MADR:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: = MADR.\r\n", channelId);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: = MADR.\r\n", channelId);
 				break;
 			case CChannel::REG_CHCR:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: = CHCR.\r\n", channelId);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: = CHCR.\r\n", channelId);
 				break;
 			default:
-				CLog::GetInstance().Print(LOG_NAME, "Read an unknown register 0x%0.8X.\r\n",
+				CLog::GetInstance().Print(LOG_NAME, "Read an unknown register 0x%08X.\r\n",
 					address);
 				break;
 			}
@@ -186,10 +219,10 @@ void CDmac::LogWrite(uint32 address, uint32 value)
 	switch(address)
 	{
 	case DPCR:
-		CLog::GetInstance().Print(LOG_NAME, "DPCR = 0x%0.8X.\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "DPCR = 0x%08X.\r\n", value);
 		break;
 	case DICR:
-		CLog::GetInstance().Print(LOG_NAME, "DICR = 0x%0.8X.\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "DICR = 0x%08X.\r\n", value);
 		break;
 	default:
 		{
@@ -198,19 +231,19 @@ void CDmac::LogWrite(uint32 address, uint32 value)
 			switch(registerId)
 			{
 			case CChannel::REG_MADR:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: MADR = 0x%0.8X.\r\n", channelId, value);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: MADR = 0x%08X.\r\n", channelId, value);
 				break;
 			case CChannel::REG_BCR:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: BCR = 0x%0.8X.\r\n", channelId, value);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: BCR = 0x%08X.\r\n", channelId, value);
 				break;
 			case CChannel::REG_BCR + 2:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: BCR.ba = 0x%0.8X.\r\n", channelId, value);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: BCR.ba = 0x%08X.\r\n", channelId, value);
 				break;
 			case CChannel::REG_CHCR:
-				CLog::GetInstance().Print(LOG_NAME, "ch%0.2d: CHCR = 0x%0.8X.\r\n", channelId, value);
+				CLog::GetInstance().Print(LOG_NAME, "ch%02d: CHCR = 0x%08X.\r\n", channelId, value);
 				break;
 			default:
-				CLog::GetInstance().Print(LOG_NAME, "Wrote 0x%0.8X to unknown register 0x%0.8X.\r\n",
+				CLog::GetInstance().Print(LOG_NAME, "Wrote 0x%08X to unknown register 0x%08X.\r\n",
 					value, address);
 				break;
 			}

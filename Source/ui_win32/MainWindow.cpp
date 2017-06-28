@@ -20,6 +20,7 @@
 #include "GSH_OpenGLWin32.h"
 #include "../PH_Generic.h"
 #include "PH_DirectInput.h"
+#include "ScreenShotUtils.h"
 #include "VFSManagerWnd.h"
 #include "McManagerWnd.h"
 #include "Debugger.h"
@@ -311,6 +312,9 @@ long CMainWindow::OnCommand(unsigned short nID, unsigned short nCmd, HWND hSende
 	case ID_MAIN_DEBUG_ENABLEGSDRAW:
 		ToggleGsDraw();
 		break;
+	case ID_VIRTUALMACHINE_SCREENCAPTURE:
+		ScreenCapture();
+		break;
 #ifdef PROFILE
 	case ID_MAIN_PROFILE_RESETSTATS:
 		m_statsOverlayWnd.ResetStats();
@@ -499,7 +503,7 @@ void CMainWindow::DumpNextFrame()
 				Framework::PathUtils::EnsurePathExists(frameDumpDirectoryPath);
 				for(unsigned int i = 0; i < UINT_MAX; i++)
 				{
-					auto frameDumpFileName = string_format("framedump_%0.8d.dmp.zip", i);
+					auto frameDumpFileName = string_format("framedump_%08d.dmp.zip", i);
 					auto frameDumpPath = frameDumpDirectoryPath / boost::filesystem::path(frameDumpFileName);
 					if(!boost::filesystem::exists(frameDumpPath))
 					{
@@ -1041,4 +1045,14 @@ m_fileName(fileName)
 void CMainWindow::CLoadElfOpenCommand::Execute(CMainWindow* mainWindow)
 {
 	mainWindow->LoadELF(m_fileName.c_str());
+}
+
+void CMainWindow::ScreenCapture()
+{
+	CScreenShotUtils::TriggerGetScreenshot(&m_virtualMachine,
+		[&](int res, const char* msg)->void
+		{
+			m_statusBar.SetText(STATUSPANEL, string_cast<std::tstring>(msg).c_str());
+		}
+	);
 }

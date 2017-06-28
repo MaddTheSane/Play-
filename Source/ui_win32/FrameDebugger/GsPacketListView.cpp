@@ -3,6 +3,7 @@
 #include "string_cast.h"
 #include "string_format.h"
 #include "win32/DpiUtils.h"
+#include "../WinUtils.h"
 
 CGsPacketListView::CGsPacketListView(HWND parentWnd, const RECT& rect)
 : m_frameDump(nullptr)
@@ -39,7 +40,9 @@ void CGsPacketListView::SetFrameDump(CFrameDump* frameDump)
 	m_frameDump = frameDump;
 
 	m_packetsTreeView->SetSelection(NULL);
+	m_packetsTreeView->SetRedraw(FALSE);
 	m_packetsTreeView->DeleteAllItems();
+	m_packetsTreeView->SetRedraw(TRUE);
 	m_packetInfos.clear();
 	m_writeInfos.clear();
 
@@ -71,7 +74,7 @@ void CGsPacketListView::SetFrameDump(CFrameDump* frameDump)
 		}
 		else
 		{
-			packetDescription = string_cast<std::tstring>(string_format("Image Packet (Size: 0x%0.8X)", 
+			packetDescription = string_cast<std::tstring>(string_format("Image Packet (Size: 0x%08X)", 
 				packet.imageData.size()));
 		}
 
@@ -149,10 +152,34 @@ LRESULT CGsPacketListView::OnNotify(WPARAM param, NMHDR* header)
 		case TVN_SELCHANGED:
 			OnPacketsTreeViewSelChanged(reinterpret_cast<NMTREEVIEW*>(header));
 			break;
+		case TVN_KEYDOWN:
+			OnPacketsTreeViewKeyDown(reinterpret_cast<NMTVKEYDOWN*>(header));
+			break;
 		}
 		return FALSE;
 	}
 	return FALSE;
+}
+
+long CGsPacketListView::OnCopy()
+{
+	HTREEITEM selectedItem = m_packetsTreeView->GetSelection();
+	if(selectedItem == NULL) return TRUE;
+
+	TVITEM treeViewItem = {};
+	treeViewItem.mask = TVIF_PARAM | TVIF_HANDLE;
+	m_packetsTreeView->GetItem(selectedItem, &treeViewItem);
+
+	uint32 selectedItemIndex = GetItemIndexFromTreeViewItem(&treeViewItem);
+	const auto& writeInfo = m_writeInfos[selectedItemIndex];
+	const auto& registerWrite = writeInfo.registerWrite;
+
+	auto text = string_format(_T("0x%02X -> 0x%016llX\r\n"), 
+		registerWrite.first, registerWrite.second);
+
+	WinUtils::CopyStringToClipboard(text);
+
+	return TRUE;
 }
 
 long CGsPacketListView::OnPacketsTreeViewCustomDraw(NMTVCUSTOMDRAW* customDraw)
@@ -211,11 +238,12 @@ void CGsPacketListView::OnPacketsTreeViewItemExpanding(NMTREEVIEW* treeView)
 		for(const auto& registerWrite : packet.registerWrites)
 		{
 			auto packetWriteDescription = CGSHandler::DisassembleWrite(registerWrite.first, registerWrite.second);
-			auto treeItemText = string_format("%0.4X: %s", cmdIndex - packetInfo.cmdIndexStart, packetWriteDescription.c_str());
+			auto treeItemText = string_format("%04X: %s", cmdIndex - packetInfo.cmdIndexStart, packetWriteDescription.c_str());
 			HTREEITEM newItem = m_packetsTreeView->InsertItem(treeView->itemNew.hItem, string_cast<std::tstring>(treeItemText).c_str());
 
 			auto& writeInfo = m_writeInfos[cmdIndex];
-			writeInfo.treeViewItem = newItem;
+			writeInfo.treeViewItem  = newItem;
+			writeInfo.registerWrite = registerWrite;
 
 			m_packetsTreeView->SetItemParam(newItem, cmdIndex++);
 		}
@@ -231,6 +259,19 @@ void CGsPacketListView::OnPacketsTreeViewSelChanged(NMTREEVIEW* treeView)
 	selchangedInfo.hwndFrom			= m_hWnd;
 	selchangedInfo.selectedCmdIndex = selectedCmdIndex;
 	SendMessage(GetParent(), WM_NOTIFY, reinterpret_cast<WPARAM>(m_hWnd), reinterpret_cast<LPARAM>(&selchangedInfo));
+}
+
+void CGsPacketListView::OnPacketsTreeViewKeyDown(const NMTVKEYDOWN* keyDown)
+{
+	switch(keyDown->wVKey)
+	{
+	case 'C':
+		if(GetAsyncKeyState(VK_CONTROL))
+		{
+			SendMessage(m_hWnd, WM_COPY, 0, 0);
+		}
+		break;
+	}
 }
 
 void CGsPacketListView::GoToWrite(uint32 writeIndex)

@@ -7,6 +7,7 @@
 #include <array>
 #include <boost/signals2.hpp>
 
+#include "bitmap/Bitmap.h"
 #include "Types.h"
 #include "Convertible.h"
 #include "../MailBox.h"
@@ -216,8 +217,8 @@ public:
 		uint16			nV;
 		uint32			nReserved;
 
-		float			GetU()			{ return static_cast<float>(nU & 0x7FFF) / 16.0f; }
-		float			GetV()			{ return static_cast<float>(nV & 0x7FFF) / 16.0f; }
+		float			GetU() const    { return static_cast<float>(nU & 0x3FFF) / 16.0f; }
+		float			GetV() const    { return static_cast<float>(nV & 0x3FFF) / 16.0f; }
 	};
 	static_assert(sizeof(UV) == sizeof(uint64), "Size of UV struct must be 8 bytes.");
 
@@ -601,7 +602,7 @@ public:
 	void									WriteRegister(uint8, uint64);
 	void									FeedImageData(const void*, uint32);
 	void									ReadImageData(void*, uint32);
-	void									WriteRegisterMassively(const RegisterWrite*, unsigned int, const CGsPacketMetadata*);
+	void									WriteRegisterMassively(RegisterWriteList, const CGsPacketMetadata*);
 
 	virtual void							SetCrt(bool, unsigned int, bool);
 	void									Initialize();
@@ -628,6 +629,10 @@ public:
 	unsigned int							GetCrtHeight() const;
 	bool									GetCrtIsInterlaced() const;
 	bool									GetCrtIsFrameMode() const;
+
+	virtual Framework::CBitmap				GetScreenshot();
+
+	boost::signals2::signal<void()>			OnFlipComplete;
 
 	boost::signals2::signal<void (uint32)>	OnNewFrame;
 
@@ -773,7 +778,7 @@ protected:
 	virtual void							WriteRegisterImpl(uint8, uint64);
 	void									FeedImageDataImpl(const void*, uint32);
 	void									ReadImageDataImpl(void*, uint32);
-	virtual void							WriteRegisterMassivelyImpl(MASSIVEWRITE_INFO*);
+	void									WriteRegisterMassivelyImpl(const MASSIVEWRITE_INFO&);
 
 	void									BeginTransfer();
 

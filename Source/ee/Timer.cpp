@@ -7,15 +7,10 @@
 
 #define STATE_REGS_XML	("timer/regs.xml")
 
-CTimer::CTimer(CINTC& intc) 
+CTimer::CTimer(CINTC& intc)
 : m_intc(intc)
 {
 	Reset();
-}
-
-CTimer::~CTimer()
-{
-
 }
 
 void CTimer::Reset()
@@ -25,17 +20,17 @@ void CTimer::Reset()
 
 void CTimer::Count(unsigned int ticks)
 {
-	for(unsigned int i = 0; i < 4; i++)
+	for(unsigned int i = 0; i < MAX_TIMER; i++)
 	{
-		TIMER* timer = &m_timer[i];
+		auto& timer = m_timer[i];
 
-		if(!(timer->nMODE & MODE_COUNT_ENABLE)) continue;
+		if(!(timer.nMODE & MODE_COUNT_ENABLE)) continue;
 
-		uint32 previousCount	= timer->nCOUNT;
-		uint32 nextCount		= timer->nCOUNT;
+		uint32 previousCount	= timer.nCOUNT;
+		uint32 nextCount		= timer.nCOUNT;
 
 		uint32 divider = 1;
-		switch(timer->nMODE & 0x03)
+		switch(timer.nMODE & 0x03)
 		{
 		case 0x00:
 			divider = 1;
@@ -52,40 +47,40 @@ void CTimer::Count(unsigned int ticks)
 		}
 
 		//Compute increment
-		uint32 totalTicks = timer->clockRemain + ticks;
+		uint32 totalTicks = timer.clockRemain + ticks;
 		uint32 countAdd = totalTicks / divider;
-		timer->clockRemain = totalTicks % divider;
+		timer.clockRemain = totalTicks % divider;
 		nextCount = previousCount + countAdd;
 
-		uint32 compare = (timer->nCOMP == 0) ? 0x10000 : timer->nCOMP;
+		uint32 compare = (timer.nCOMP == 0) ? 0x10000 : timer.nCOMP;
 		uint32 newFlags = 0;
 
 		//Check if it hit the reference value
 		if((previousCount < compare) && (nextCount >= compare))
 		{
 			newFlags |= MODE_EQUAL_FLAG;
-			if(timer->nMODE & MODE_ZERO_RETURN)
+			if(timer.nMODE & MODE_ZERO_RETURN)
 			{
-				timer->nCOUNT = nextCount - compare;
+				timer.nCOUNT = nextCount - compare;
 			}
 			else
 			{
-				timer->nCOUNT = nextCount;
+				timer.nCOUNT = nextCount;
 			}
 		}
 		else
 		{
-			timer->nCOUNT = nextCount;
+			timer.nCOUNT = nextCount;
 		}
 
-		if(timer->nCOUNT >= 0xFFFF)
+		if(timer.nCOUNT >= 0xFFFF)
 		{
 			newFlags |= MODE_OVERFLOW_FLAG;
-			timer->nCOUNT &= 0xFFFF;
+			timer.nCOUNT &= 0xFFFF;
 		}
-		timer->nMODE |= newFlags;
+		timer.nMODE |= newFlags;
 
-		uint32 nMask = (timer->nMODE & 0x300) << 2;
+		uint32 nMask = (timer.nMODE & 0x300) << 2;
 		bool interruptPending = (newFlags & nMask) != 0;
 		if(interruptPending)
 		{
@@ -135,7 +130,7 @@ uint32 CTimer::GetRegister(uint32 nAddress)
 		break;
 
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled IO port (0x%0.8X).\r\n", nAddress);
+		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled IO port (0x%08X).\r\n", nAddress);
 		break;
 	}
 
@@ -185,7 +180,7 @@ void CTimer::SetRegister(uint32 nAddress, uint32 nValue)
 		break;
 
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Wrote to an unhandled IO port (0x%0.8X, 0x%0.8X).\r\n", nAddress, nValue);
+		CLog::GetInstance().Print(LOG_NAME, "Wrote to an unhandled IO port (0x%08X, 0x%08X).\r\n", nAddress, nValue);
 		break;
 	}
 }
@@ -221,19 +216,19 @@ void CTimer::DisassembleSet(uint32 nAddress, uint32 nValue)
 	switch(nAddress & 0x7FF)
 	{
 	case 0x00:
-		CLog::GetInstance().Print(LOG_NAME, "T%i_COUNT = 0x%0.8X\r\n", nTimerId, nValue);
+		CLog::GetInstance().Print(LOG_NAME, "T%i_COUNT = 0x%08X\r\n", nTimerId, nValue);
 		break;
 
 	case 0x10:
-		CLog::GetInstance().Print(LOG_NAME, "T%i_MODE = 0x%0.8X\r\n", nTimerId, nValue);
+		CLog::GetInstance().Print(LOG_NAME, "T%i_MODE = 0x%08X\r\n", nTimerId, nValue);
 		break;
 
 	case 0x20:
-		CLog::GetInstance().Print(LOG_NAME, "T%i_COMP = 0x%0.8X\r\n", nTimerId, nValue);
+		CLog::GetInstance().Print(LOG_NAME, "T%i_COMP = 0x%08X\r\n", nTimerId, nValue);
 		break;
 
 	case 0x30:
-		CLog::GetInstance().Print(LOG_NAME, "T%i_HOLD = 0x%0.8X\r\n", nTimerId, nValue);
+		CLog::GetInstance().Print(LOG_NAME, "T%i_HOLD = 0x%08X\r\n", nTimerId, nValue);
 		break;
 	}
 }
@@ -241,7 +236,7 @@ void CTimer::DisassembleSet(uint32 nAddress, uint32 nValue)
 void CTimer::LoadState(Framework::CZipArchiveReader& archive)
 {
 	CRegisterStateFile registerFile(*archive.BeginReadFile(STATE_REGS_XML));
-	for(unsigned int i = 0; i < 4; i++)
+	for(unsigned int i = 0; i < MAX_TIMER; i++)
 	{
 		auto& timer = m_timer[i];
 		std::string timerPrefix = "TIMER" + std::to_string(i) + "_";
@@ -256,7 +251,7 @@ void CTimer::LoadState(Framework::CZipArchiveReader& archive)
 void CTimer::SaveState(Framework::CZipArchiveWriter& archive)
 {
 	CRegisterStateFile* registerFile = new CRegisterStateFile(STATE_REGS_XML);
-	for(unsigned int i = 0; i < 4; i++)
+	for(unsigned int i = 0; i < MAX_TIMER; i++)
 	{
 		const auto& timer = m_timer[i];
 		std::string timerPrefix = "TIMER" + std::to_string(i) + "_";
@@ -267,4 +262,33 @@ void CTimer::SaveState(Framework::CZipArchiveWriter& archive)
 		registerFile->SetRegister32((timerPrefix + "REM").c_str(), timer.clockRemain);
 	}
 	archive.InsertFile(registerFile);
+}
+
+void CTimer::NotifyVBlankStart()
+{
+	ProcessGateEdgeChange(MODE_GATE_SELECT_VBLANK, MODE_GATE_MODE_HIGHEDGE);
+}
+
+void CTimer::NotifyVBlankEnd()
+{
+	ProcessGateEdgeChange(MODE_GATE_SELECT_VBLANK, MODE_GATE_MODE_LOWEDGE);
+}
+
+void CTimer::ProcessGateEdgeChange(uint32 gate, uint32 edgeMode)
+{
+	for(unsigned int i = 0; i < MAX_TIMER; i++)
+	{
+		auto& timer = m_timer[i];
+		if(!(timer.nMODE & MODE_COUNT_ENABLE)) continue;
+		if(!(timer.nMODE & MODE_GATE_ENABLE)) continue;
+
+		if((timer.nMODE & MODE_GATE_SELECT) != gate) continue;
+
+		uint32 gateMode = (timer.nMODE & MODE_GATE_MODE);
+		if((edgeMode & gateMode) == edgeMode)
+		{
+			timer.nCOUNT = 0;
+			timer.clockRemain = 0;
+		}
+	}
 }

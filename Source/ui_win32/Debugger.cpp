@@ -25,6 +25,8 @@
 
 #define PREF_DEBUGGER_MEMORYVIEW_BYTEWIDTH	"debugger.memoryview.bytewidth"
 
+#define FIND_MAX_ADDRESS 0x02000000
+
 CDebugger::CDebugger(CPS2VM& virtualMachine)
 : m_virtualMachine(virtualMachine)
 {
@@ -67,10 +69,10 @@ CDebugger::CDebugger(CPS2VM& virtualMachine)
 	m_threadsView->Show(SW_HIDE);
 	m_threadsView->OnGotoAddress.connect(boost::bind(&CDebugger::OnThreadsViewAddressDblClick, this, _1));
 
-	//Find Callers View Initialization
-	m_findCallersView = new CFindCallersViewWnd(m_pMDIClient->m_hWnd);
-	m_findCallersView->Show(SW_HIDE);
-	m_findCallersView->AddressSelected.connect([&] (uint32 address) { OnFindCallersAddressDblClick(address); });
+	//Address List View Initialization
+	m_addressListView = new CAddressListViewWnd(m_pMDIClient->m_hWnd);
+	m_addressListView->Show(SW_HIDE);
+	m_addressListView->AddressSelected.connect([&] (uint32 address) { OnFindCallersAddressDblClick(address); });
 
 	//Debug Views Initialization
 	m_nCurrentView = -1;
@@ -240,26 +242,25 @@ void CDebugger::StepCPU()
 	GetCurrentView()->Step();
 }
 
-void CDebugger::FindValue()
+void CDebugger::FindWordValue(uint32 mask)
 {
-	Framework::Win32::CInputBox Input(_T("Find Value in Memory"), _T("Enter value to find:"), _T("00000000"));
+	Framework::Win32::CInputBox input(_T("Find Value in Memory"), _T("Enter value to find:"), _T("00000000"));
 	
-	const TCHAR* sValue = Input.GetValue(m_hWnd);
-	if(sValue == NULL) return;
+	auto valueString = input.GetValue(m_hWnd);
+	if(!valueString) return;
 
-	uint32 nValue = 0;
-	_stscanf(sValue, _T("%x"), &nValue);
-	if(nValue == 0) return;
+	uint32 targetValue = 0;
+	auto scanned = _stscanf(valueString, _T("%x"), &targetValue);
+	if(scanned == 0) return;
 
-	printf("Search results for 0x%0.8X\r\n", nValue);
-	printf("-----------------------------\r\n");
-	for(unsigned int i = 0; i < PS2::EE_RAM_SIZE; i += 4)
-	{
-		if(*(uint32*)&m_virtualMachine.m_ee->m_ram[i] == nValue)
-		{
-			printf("0x%0.8X\r\n", i);
-		}
-	}
+	auto context = GetCurrentView()->GetContext();
+	auto title = string_format(_T("Search results for 0x%08X"), targetValue);
+	auto refs = FindWordValueRefs(context, targetValue & mask, mask);
+
+	m_addressListView->SetTitle(std::move(title));
+	m_addressListView->SetAddressList(std::move(refs));
+	m_addressListView->Show(SW_SHOW);
+	m_addressListView->SetFocus();
 }
 
 void CDebugger::AssembleJAL()
@@ -292,7 +293,7 @@ void CDebugger::ReanalyzeEe()
 		[this] (const TCHAR* prompt, uint32& address)
 		{
 			Framework::Win32::CInputBox addressInputBox(_T("Analyze EE"), prompt, 
-				string_format(_T("0x%0.8X"), address).c_str());
+				string_format(_T("0x%08X"), address).c_str());
 			auto addrValue = addressInputBox.GetValue(m_hWnd);
 			if(addrValue == nullptr) return false;
 			uint32 addrValueTemp = 0;
@@ -379,6 +380,7 @@ void CDebugger::FindEeFunctions()
 			{    "sceDbcSendData2: rpc error\n",                                     "DbcSendData2"         },
 			{    "The size of work area is too small",                               "MpegCreate"           },
 			{    "Need to re-setup libipu since sceMpegGetPicture was aborted\n",    "_MpegInternalFct"     },
+			{    "image buffer needs to be aligned to 64byte boundary(0x%08x)",      "_MpegInternalFct"     },
 		};
 
 		{
@@ -621,6 +623,35 @@ CCallStackWnd* CDebugger::GetCallStackWindow()
 	return GetCurrentView()->GetCallStackWindow();
 }
 
+std::vector<uint32> CDebugger::FindCallers(CMIPS* context, uint32 address)
+{
+	std::vector<uint32> callers;
+	for(uint32 i = 0; i < FIND_MAX_ADDRESS; i += 4)
+	{
+		uint32 opcode = context->m_pMemoryMap->GetInstruction(i);
+		uint32 ea = context->m_pArch->GetInstructionEffectiveAddress(context, i, opcode);
+		if(ea == address)
+		{
+			callers.push_back(i);
+		}
+	}
+	return callers;
+}
+
+std::vector<uint32> CDebugger::FindWordValueRefs(CMIPS* context, uint32 targetValue, uint32 valueMask)
+{
+	std::vector<uint32> refs;
+	for(uint32 i = 0; i < FIND_MAX_ADDRESS; i += 4)
+	{
+		uint32 valueAtAddress = context->m_pMemoryMap->GetWord(i);
+		if((valueAtAddress & valueMask) == targetValue)
+		{
+			refs.push_back(i);
+		}
+	}
+	return refs;
+}
+
 void CDebugger::CreateAccelerators()
 {
 	Framework::Win32::CAcceleratorTableGenerator generator;
@@ -666,8 +697,11 @@ long CDebugger::OnCommand(unsigned short nID, unsigned short nMsg, HWND hFrom)
 	case ID_VM_FINDEEFUNCTIONS:
 		FindEeFunctions();
 		break;
-	case ID_VM_FINDVALUE:
-		FindValue();
+	case ID_VM_FINDWORDVALUE:
+		FindWordValue(~0);
+		break;
+	case ID_VM_FINDWORDLOWHALFVALUE:
+		FindWordValue(0xFFFF);
 		break;
 	case ID_VIEW_MEMORY:
 		GetMemoryViewWindow()->Show(SW_SHOW);
@@ -798,10 +832,26 @@ void CDebugger::OnExecutableUnloading()
 void CDebugger::OnFindCallersRequested(uint32 address)
 {
 	auto context = GetCurrentView()->GetContext();
+	auto callers = FindCallers(context, address);
+	auto title = 
+		[&] ()
+		{
+			auto functionName = context->m_Functions.Find(address);
+			if(functionName)
+			{
+				return string_format(_T("Find Callers For '%s' (0x%08X)"), 
+					string_cast<std::tstring>(functionName).c_str(), address);
+			}
+			else
+			{
+				return string_format(_T("Find Callers For 0x%08X"), address);
+			}
+		}();
 
-	m_findCallersView->FindCallers(context, address);
-	m_findCallersView->Show(SW_SHOW);
-	m_findCallersView->SetFocus();
+	m_addressListView->SetAddressList(std::move(callers));
+	m_addressListView->SetTitle(std::move(title));
+	m_addressListView->Show(SW_SHOW);
+	m_addressListView->SetFocus();
 }
 
 void CDebugger::OnFindCallersAddressDblClick(uint32 address)

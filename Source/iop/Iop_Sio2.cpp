@@ -1,8 +1,20 @@
 #include "Iop_Sio2.h"
 #include "../Log.h"
+#include "../RegisterStateFile.h"
+#include "../MemoryStateFile.h"
 #include <assert.h>
 
 #define LOG_NAME ("iop_sio2")
+
+#define STATE_REGS                 ("sio2/regs")
+#define STATE_CTRL1                ("sio2/ctrl1")
+#define STATE_CTRL2                ("sio2/ctrl2")
+#define STATE_PAD                  ("sio2/pad")
+#define STATE_INPUT                ("sio2/input")
+#define STATE_OUTPUT               ("sio2/output")
+
+#define STATE_REGS_XML             ("sio2/regs.xml")
+#define STATE_REGS_CURRENTREGINDEX ("CurrentRegIndex")
 
 using namespace Iop;
 
@@ -36,11 +48,6 @@ CSio2::CSio2(Iop::CIntc& intc)
 	Reset();
 }
 
-CSio2::~CSio2()
-{
-
-}
-
 void CSio2::Reset()
 {
 	m_currentRegIndex = 0;
@@ -59,6 +66,53 @@ void CSio2::Reset()
 		padInfo.pollMask[2] = 0x03;
 		memset(padInfo.analogStickState, 0x7F, sizeof(padInfo.analogStickState));
 	}
+}
+
+void CSio2::LoadState(Framework::CZipArchiveReader& archive)
+{
+	static const auto readBuffer =
+		[] (ByteBufferType& outputBuffer, Framework::CStream& inputStream)
+		{
+			outputBuffer.clear();
+			while(!inputStream.IsEOF())
+			{
+				uint8 buffer[256];
+				uint32 read = inputStream.Read(buffer, 256);
+				outputBuffer.insert(outputBuffer.end(), buffer, buffer + read);
+			}
+		};
+
+	{
+		CRegisterStateFile registerFile(*archive.BeginReadFile(STATE_REGS_XML));
+		m_currentRegIndex = registerFile.GetRegister32(STATE_REGS_CURRENTREGINDEX);
+	}
+
+	archive.BeginReadFile(STATE_REGS)->Read(&m_regs, sizeof(m_regs));
+	archive.BeginReadFile(STATE_CTRL1)->Read(&m_ctrl1, sizeof(m_ctrl1));
+	archive.BeginReadFile(STATE_CTRL2)->Read(&m_ctrl2, sizeof(m_ctrl2));
+	archive.BeginReadFile(STATE_PAD)->Read(&m_padState, sizeof(m_padState));
+
+	readBuffer(m_outputBuffer, *archive.BeginReadFile(STATE_OUTPUT));
+	readBuffer(m_inputBuffer, *archive.BeginReadFile(STATE_INPUT));
+}
+
+void CSio2::SaveState(Framework::CZipArchiveWriter& archive)
+{
+	auto inputBuffer = std::vector<uint8>(m_inputBuffer.begin(), m_inputBuffer.end());
+	auto outputBuffer = std::vector<uint8>(m_outputBuffer.begin(), m_outputBuffer.end());
+
+	{
+		auto registerFile = new CRegisterStateFile(STATE_REGS_XML);
+		registerFile->SetRegister32(STATE_REGS_CURRENTREGINDEX, m_currentRegIndex);
+		archive.InsertFile(registerFile);
+	}
+
+	archive.InsertFile(new CMemoryStateFile(STATE_REGS,   &m_regs,     sizeof(m_regs)));
+	archive.InsertFile(new CMemoryStateFile(STATE_CTRL1,  &m_ctrl1,    sizeof(m_ctrl1)));
+	archive.InsertFile(new CMemoryStateFile(STATE_CTRL2,  &m_ctrl2,    sizeof(m_ctrl2)));
+	archive.InsertFile(new CMemoryStateFile(STATE_PAD,    &m_padState, sizeof(m_padState)));
+	archive.InsertFile(new CMemoryStateFile(STATE_INPUT,  inputBuffer.data(), inputBuffer.size()));
+	archive.InsertFile(new CMemoryStateFile(STATE_OUTPUT, outputBuffer.data(), outputBuffer.size()));
 }
 
 void CSio2::SetButtonState(unsigned int padNumber, PS2::CControllerInfo::BUTTON button, bool pressed, uint8* ram)
@@ -356,11 +410,11 @@ void CSio2::ProcessController(unsigned int portId, size_t outputOffset, uint32 d
 			padState.pollMask[0] = m_inputBuffer[3];
 			padState.pollMask[1] = m_inputBuffer[4];
 			padState.pollMask[2] = m_inputBuffer[5];
-			CLog::GetInstance().Print(LOG_NAME, "Pad %d: SetPollMask(mask = { 0x%0.2X, 0x%0.2X, 0x%0.2X });\r\n", 
+			CLog::GetInstance().Print(LOG_NAME, "Pad %d: SetPollMask(mask = { 0x%02X, 0x%02X, 0x%02X });\r\n", 
 				padId, padState.pollMask[0], padState.pollMask[1], padState.pollMask[2]);
 			break;
 		default:
-			CLog::GetInstance().Print(LOG_NAME, "Pad %d: Unknown command received (0x%0.2X).\r\n", padId, cmd);
+			CLog::GetInstance().Print(LOG_NAME, "Pad %d: Unknown command received (0x%02X).\r\n", padId, cmd);
 			break;
 		}
 	}
@@ -395,13 +449,13 @@ void CSio2::DisassembleRead(uint32 address, uint32 value)
 	switch(address)
 	{
 	case REG_DATA_IN:
-		CLog::GetInstance().Print(LOG_NAME, "= DATA_IN = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "= DATA_IN = 0x%08X\r\n", value);
 		break;
 	case REG_CTRL:
-		CLog::GetInstance().Print(LOG_NAME, "= REG_CTRL = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "= REG_CTRL = 0x%08X\r\n", value);
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Read an unknown register 0x%0.8X.\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Read an unknown register 0x%08X.\r\n", address);
 		break;
 	}
 }
@@ -411,37 +465,37 @@ void CSio2::DisassembleWrite(uint32 address, uint32 value)
 	switch(address)
 	{
 	case REG_PORT0_CTRL1:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT0_CTRL1 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT0_CTRL1 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT0_CTRL2:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT0_CTRL2 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT0_CTRL2 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT1_CTRL1:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT1_CTRL1 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT1_CTRL1 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT1_CTRL2:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT1_CTRL2 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT1_CTRL2 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT2_CTRL1:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT2_CTRL1 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT2_CTRL1 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT2_CTRL2:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT2_CTRL2 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT2_CTRL2 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT3_CTRL1:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT3_CTRL1 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT3_CTRL1 = 0x%08X\r\n", value);
 		break;
 	case REG_PORT3_CTRL2:
-		CLog::GetInstance().Print(LOG_NAME, "REG_PORT3_CTRL2 = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "REG_PORT3_CTRL2 = 0x%08X\r\n", value);
 		break;
 	case REG_DATA_OUT:
-		CLog::GetInstance().Print(LOG_NAME, "DATA_OUT = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "DATA_OUT = 0x%08X\r\n", value);
 		break;
 	case REG_CTRL:
-		CLog::GetInstance().Print(LOG_NAME, "CTRL = 0x%0.8X\r\n", value);
+		CLog::GetInstance().Print(LOG_NAME, "CTRL = 0x%08X\r\n", value);
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Write 0x%0.8X to an unknown register 0x%0.8X.\r\n", value, address);
+		CLog::GetInstance().Print(LOG_NAME, "Write 0x%08X to an unknown register 0x%08X.\r\n", value, address);
 		break;
 	}
 }

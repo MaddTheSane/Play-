@@ -95,9 +95,13 @@ void CSubSystem::SaveState(Framework::CZipArchiveWriter& archive)
 	archive.InsertFile(new CMemoryStateFile(STATE_SCRATCH,	m_scratchPad,	IOP_SCRATCH_SIZE));
 	archive.InsertFile(new CMemoryStateFile(STATE_SPURAM,	m_spuRam,		SPU_RAM_SIZE));
 	m_intc.SaveState(archive);
+	m_dmac.SaveState(archive);
 	m_counters.SaveState(archive);
 	m_spuCore0.SaveState(archive);
 	m_spuCore1.SaveState(archive);
+#ifdef _IOP_EMULATE_MODULES
+	m_sio2.SaveState(archive);
+#endif
 	m_bios->SaveState(archive);
 }
 
@@ -108,9 +112,13 @@ void CSubSystem::LoadState(Framework::CZipArchiveReader& archive)
 	archive.BeginReadFile(STATE_SCRATCH		)->Read(m_scratchPad,	IOP_SCRATCH_SIZE);
 	archive.BeginReadFile(STATE_SPURAM		)->Read(m_spuRam,		SPU_RAM_SIZE);
 	m_intc.LoadState(archive);
+	m_dmac.LoadState(archive);
 	m_counters.LoadState(archive);
 	m_spuCore0.LoadState(archive);
 	m_spuCore1.LoadState(archive);
+#ifdef _IOP_EMULATE_MODULES
+	m_sio2.LoadState(archive);
+#endif
 	m_bios->LoadState(archive);
 }
 
@@ -186,7 +194,7 @@ uint32 CSubSystem::ReadIoRegister(uint32 address)
 	}
 	else
 	{
-		CLog::GetInstance().Print(LOG_NAME, "Reading an unknown hardware register (0x%0.8X).\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Reading an unknown hardware register (0x%08X).\r\n", address);
 	}
 	return 0;
 }
@@ -228,9 +236,30 @@ uint32 CSubSystem::WriteIoRegister(uint32 address, uint32 value)
 	}
 	else
 	{
-		CLog::GetInstance().Print(LOG_NAME, "Writing to an unknown hardware register (0x%0.8X, 0x%0.8X).\r\n", address, value);
+		CLog::GetInstance().Print(LOG_NAME, "Writing to an unknown hardware register (0x%08X, 0x%08X).\r\n", address, value);
 	}
+
+	if(
+		m_intc.HasPendingInterrupt() && 
+		(m_cpu.m_State.nHasException == MIPS_EXCEPTION_NONE) &&
+		((m_cpu.m_State.nCOP0[CCOP_SCU::STATUS] & CMIPS::STATUS_IE) == CMIPS::STATUS_IE)
+		)
+	{
+		m_cpu.m_State.nHasException = MIPS_EXCEPTION_CHECKPENDINGINT;
+	}
+
 	return 0;
+}
+
+void CSubSystem::CheckPendingInterrupts()
+{
+	if(!m_cpu.m_State.nHasException)
+	{
+		if(m_intc.HasPendingInterrupt())
+		{
+			m_bios->HandleInterrupt();
+		}
+	}
 }
 
 bool CSubSystem::IsCpuIdle()
@@ -282,20 +311,29 @@ void CSubSystem::CountTicks(int ticks)
 int CSubSystem::ExecuteCpu(int quota)
 {
 	int executed = 0;
-	if(!m_cpu.m_State.nHasException)
-	{
-		if(m_intc.HasPendingInterrupt())
-		{
-			m_bios->HandleInterrupt();
-		}
-	}
+	CheckPendingInterrupts();
 	if(!m_cpu.m_State.nHasException)
 	{
 		executed = (quota - m_executor.Execute(quota));
 	}
 	if(m_cpu.m_State.nHasException)
 	{
-		m_bios->HandleException();
+		switch(m_cpu.m_State.nHasException)
+		{
+		case MIPS_EXCEPTION_SYSCALL:
+			m_bios->HandleException();
+			assert(m_cpu.m_State.nHasException == MIPS_EXCEPTION_NONE);
+			break;
+		case MIPS_EXCEPTION_CHECKPENDINGINT:
+			{
+				m_cpu.m_State.nHasException = MIPS_EXCEPTION_NONE;
+				CheckPendingInterrupts();
+				//Needs to be cleared again because exception flag might be set by BIOS interrupt handler
+				m_cpu.m_State.nHasException = MIPS_EXCEPTION_NONE;
+			}
+			break;
+		}
+		assert(m_cpu.m_State.nHasException == MIPS_EXCEPTION_NONE);
 	}
 	return executed;
 }

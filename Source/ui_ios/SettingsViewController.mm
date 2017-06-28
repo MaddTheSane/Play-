@@ -2,7 +2,7 @@
 #include "../AppConfig.h"
 #include "PreferenceDefs.h"
 #include "AppDef.h"
-#include "GSH_OpenGL.h"
+#include "../gs/GSH_OpenGL/GSH_OpenGL.h"
 
 @implementation SettingsViewController
 
@@ -16,7 +16,7 @@
 	
 	[enableAudioOutput setOn: CAppConfig::GetInstance().GetPreferenceBoolean(PREFERENCE_AUDIO_ENABLEOUTPUT)];
 
-	NSString* versionString = [NSString stringWithFormat: @"0.%0.2d - %s", APP_VERSION, __DATE__];
+	NSString* versionString = [NSString stringWithFormat: @"0.%02d - %s", APP_VERSION, __DATE__];
 	versionInfoLabel.text = versionString;
 }
 

@@ -12,10 +12,13 @@ void CGSH_Direct3D9::SetupTextureUpdaters()
 		m_textureUpdater[i] = &CGSH_Direct3D9::TexUpdater_Invalid;
 	}
 
-	m_textureUpdater[PSMCT32] = &CGSH_Direct3D9::TexUpdater_Psm32;
-	m_textureUpdater[PSMCT16] = &CGSH_Direct3D9::TexUpdater_Psm16<CGsPixelFormats::CPixelIndexorPSMCT16>;
-	m_textureUpdater[PSMT8]   = &CGSH_Direct3D9::TexUpdater_Psm48<CGsPixelFormats::CPixelIndexorPSMT8>;
-	m_textureUpdater[PSMT4]   = &CGSH_Direct3D9::TexUpdater_Psm48<CGsPixelFormats::CPixelIndexorPSMT4>;
+	m_textureUpdater[PSMCT32]  = &CGSH_Direct3D9::TexUpdater_Psm32;
+	m_textureUpdater[PSMCT16]  = &CGSH_Direct3D9::TexUpdater_Psm16<CGsPixelFormats::CPixelIndexorPSMCT16>;
+	m_textureUpdater[PSMCT16S] = &CGSH_Direct3D9::TexUpdater_Psm16<CGsPixelFormats::CPixelIndexorPSMCT16S>;
+	m_textureUpdater[PSMT8]    = &CGSH_Direct3D9::TexUpdater_Psm48<CGsPixelFormats::CPixelIndexorPSMT8>;
+	m_textureUpdater[PSMT4]    = &CGSH_Direct3D9::TexUpdater_Psm48<CGsPixelFormats::CPixelIndexorPSMT4>;
+	m_textureUpdater[PSMT8H]   = &CGSH_Direct3D9::TexUpdater_Psm48H<24, 0xFF>;
+	m_textureUpdater[PSMT4HL]  = &CGSH_Direct3D9::TexUpdater_Psm48H<24, 0x0F>;
 }
 
 CGSH_Direct3D9::TEXTURE_INFO CGSH_Direct3D9::LoadTexture(const TEX0& tex0, uint32 maxMip, const MIPTBP1& miptbp1, const MIPTBP2& miptbp2)
@@ -69,10 +72,13 @@ CGSH_Direct3D9::TEXTURE_INFO CGSH_Direct3D9::LoadTexture(const TEX0& tex0, uint3
 			textureFormat = D3DFMT_A8R8G8B8;
 			break;
 		case PSMCT16:
+		case PSMCT16S:
 			textureFormat = D3DFMT_A1R5G5B5;
 			break;
 		case PSMT8:
 		case PSMT4:
+		case PSMT8H:
+		case PSMT4HL:
 			textureFormat = D3DFMT_L8;
 			break;
 		default:
@@ -245,6 +251,28 @@ void CGSH_Direct3D9::TexUpdater_Psm48(D3DLOCKED_RECT* lockedRect, uint32 bufPtr,
 	}
 }
 
+template <uint32 shiftAmount, uint32 mask>
+void CGSH_Direct3D9::TexUpdater_Psm48H(D3DLOCKED_RECT* lockedRect, uint32 bufPtr, uint32 bufWidth, unsigned int texX, unsigned int texY, unsigned int texWidth, unsigned int texHeight)
+{
+	CGsPixelFormats::CPixelIndexorPSMCT32 indexor(m_pRAM, bufPtr, bufWidth);
+
+	auto dstPitch = lockedRect->Pitch;
+	auto dst = reinterpret_cast<uint8*>(lockedRect->pBits);
+	dst += texX + (texY * dstPitch);
+
+	for(unsigned int y = 0; y < texHeight; y++)
+	{
+		for(unsigned int x = 0; x < texWidth; x++)
+		{
+			uint32 pixel = indexor.GetPixel(texX + x, texY + y);
+			pixel = (pixel >> shiftAmount) & mask;
+			dst[x] = static_cast<uint8>(pixel);
+		}
+
+		dst += dstPitch;
+	}
+}
+
 //------------------------------------------------------------------------
 //CLUT Stuff
 //------------------------------------------------------------------------
@@ -257,23 +285,24 @@ CGSH_Direct3D9::TexturePtr CGSH_Direct3D9::GetClutTexture(const TEX0& tex0)
 	MakeLinearCLUT(tex0, convertedClut);
 	
 	unsigned int entryCount = CGsPixelFormats::IsPsmIDTEX4(tex0.nPsm) ? 16 : 256;
+	auto clutTexture = CGsPixelFormats::IsPsmIDTEX4(tex0.nPsm) ? m_clutTexture4 : m_clutTexture8;
 
 	{
 		D3DLOCKED_RECT rect;
-		result = m_clutTexture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
+		result = clutTexture->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
 		assert(SUCCEEDED(result));
 
 		auto dst = reinterpret_cast<uint32*>(rect.pBits);
-		unsigned int nDstPitch	= rect.Pitch / 4;
+		unsigned int nDstPitch = rect.Pitch / 4;
 
 		for(uint32 i = 0; i < entryCount; i++)
 		{
 			dst[i] = Color_Ps2ToDx9(convertedClut[i]);
 		}
 
-		result = m_clutTexture->UnlockRect(0);
+		result = clutTexture->UnlockRect(0);
 		assert(SUCCEEDED(result));
 	}
 
-	return m_clutTexture;
+	return clutTexture;
 }

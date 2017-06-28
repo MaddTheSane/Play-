@@ -263,7 +263,7 @@ uint32 CVif::ReceiveDMA(uint32 address, uint32 qwc, uint32 unused, bool tagInclu
 #endif
 
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "vif%i : Processing packet @ 0x%0.8X, qwc = 0x%X, tagIncluded = %i\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "vif%i : Processing packet @ 0x%08X, qwc = 0x%X, tagIncluded = %i\r\n",
 		m_number, address, qwc, static_cast<int>(tagIncluded));
 #endif
 
@@ -1011,7 +1011,7 @@ void CVif::DisassembleGet(uint32 address)
 		LOG_GET(VIF1_R3)
 
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Reading unknown register 0x%0.8X.\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Reading unknown register 0x%08X.\r\n", address);
 		break;
 	}
 
@@ -1022,15 +1022,15 @@ void CVif::DisassembleSet(uint32 address, uint32 value)
 {
 	if((address >= VIF0_FIFO_START) && (address < VIF0_FIFO_END))
 	{
-		CLog::GetInstance().Print(LOG_NAME, "VIF0_FIFO(0x%0.3X) = 0x%0.8X.\r\n", address & 0xFFF, value);
+		CLog::GetInstance().Print(LOG_NAME, "VIF0_FIFO(0x%03X) = 0x%08X.\r\n", address & 0xFFF, value);
 	}
 	else if((address >= VIF1_FIFO_START) && (address < VIF1_FIFO_END))
 	{
-		CLog::GetInstance().Print(LOG_NAME, "VIF1_FIFO(0x%0.3X) = 0x%0.8X.\r\n", address & 0xFFF, value);
+		CLog::GetInstance().Print(LOG_NAME, "VIF1_FIFO(0x%03X) = 0x%08X.\r\n", address & 0xFFF, value);
 	}
 	else
 	{
-#define LOG_SET(registerId) case registerId: CLog::GetInstance().Print(LOG_NAME, #registerId " = 0x%0.8X.\r\n", value); break;
+#define LOG_SET(registerId) case registerId: CLog::GetInstance().Print(LOG_NAME, #registerId " = 0x%08X.\r\n", value); break;
 
 		switch(address)
 		{
@@ -1041,7 +1041,7 @@ void CVif::DisassembleSet(uint32 address, uint32 value)
 			LOG_SET(VIF1_MARK)
 
 		default:
-			CLog::GetInstance().Print(LOG_NAME, "Writing unknown register 0x%0.8X, 0x%0.8X.\r\n", address, value);
+			CLog::GetInstance().Print(LOG_NAME, "Writing unknown register 0x%08X, 0x%08X.\r\n", address, value);
 			break;
 		}
 
@@ -1107,7 +1107,7 @@ void CVif::DisassembleCommand(CODE code)
 			CLog::GetInstance().Print(LOG_NAME, "STMOD(imm = 0x%x);\r\n", code.nIMM);
 			break;
 		case 0x06:
-			CLog::GetInstance().Print(LOG_NAME, "MSKPATH3();\r\n");
+			CLog::GetInstance().Print(LOG_NAME, "MSKPATH3(mask = %d);\r\n", (code.nIMM & 0x8000) ? 1 : 0);
 			break;
 		case 0x07:
 			CLog::GetInstance().Print(LOG_NAME, "MARK(imm = 0x%x);\r\n", code.nIMM);
@@ -1165,14 +1165,10 @@ CVif::CFifoStream::CFifoStream(uint8* ram, uint8* spr)
 
 }
 
-CVif::CFifoStream::~CFifoStream()
-{
-
-}
-
 void CVif::CFifoStream::Reset()
 {
 	m_bufferPosition = BUFFERSIZE;
+	m_startAddress = 0;
 	m_nextAddress = 0;
 	m_endAddress = 0;
 	m_tagIncluded = false;
@@ -1216,6 +1212,7 @@ void CVif::CFifoStream::SetDmaParams(uint32 address, uint32 size, bool tagInclud
 		address &= (PS2::EE_RAM_SIZE - 1);
 		assert((address + size) <= PS2::EE_RAM_SIZE);
 	}
+	m_startAddress = address;
 	m_nextAddress = address;
 	m_endAddress = address + size;
 	m_tagIncluded = tagIncluded;
@@ -1225,6 +1222,7 @@ void CVif::CFifoStream::SetDmaParams(uint32 address, uint32 size, bool tagInclud
 void CVif::CFifoStream::SetFifoParams(uint8* source, uint32 size)
 {
 	m_source = source;
+	m_startAddress = 0;
 	m_nextAddress = 0;
 	m_endAddress = size;
 	m_tagIncluded = false;
@@ -1247,6 +1245,41 @@ void CVif::CFifoStream::Align32()
 	if(remainBytes == 0) return;
 	Read(NULL, 4 - remainBytes);
 	assert((m_bufferPosition & 0x03) == 0);
+}
+
+uint8* CVif::CFifoStream::GetDirectPointer() const
+{
+	assert(!m_tagIncluded);
+	if(m_bufferPosition == BUFFERSIZE)
+	{
+		return m_source + m_nextAddress;
+	}
+	else
+	{
+		assert((m_nextAddress - m_startAddress) >= 0x10);
+		return m_source + m_nextAddress + m_bufferPosition - 0x10;
+	}
+}
+
+void CVif::CFifoStream::Advance(uint32 size)
+{
+	assert((size & 0x0F) == 0);
+	assert(!m_tagIncluded);
+	//If buffer was untouched, we can do as if we read from it directly
+	if(m_bufferPosition == 0)
+	{
+		assert(size >= 0x10);
+		size -= 0x10;
+		m_bufferPosition = BUFFERSIZE;
+	}
+	assert((m_nextAddress + size) <= m_endAddress);
+	m_nextAddress += size;
+	if(m_bufferPosition != BUFFERSIZE)
+	{
+		//Update buffer
+		assert((m_nextAddress - m_startAddress) >= 0x10);
+		m_buffer = *reinterpret_cast<uint128*>(&m_source[m_nextAddress - 0x10]);
+	}
 }
 
 void CVif::CFifoStream::SyncBuffer()

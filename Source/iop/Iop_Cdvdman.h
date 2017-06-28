@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Iop_Module.h"
-#include "../ISO9660/ISO9660.h"
+#include "../OpticalMedia.h"
 #include "zip/ZipArchiveWriter.h"
 #include "zip/ZipArchiveReader.h"
 
@@ -21,6 +21,12 @@ namespace Iop
 			CDVD_STATUS_SEEK     = 18,
 		};
 
+		enum CDVD_DISKTYPE
+		{
+			CDVD_DISKTYPE_PS2CD  = 0x12,
+			CDVD_DISKTYPE_PS2DVD = 0x14,
+		};
+
 								CCdvdman(CIopBios&, uint8*);
 		virtual					~CCdvdman();
 
@@ -28,12 +34,13 @@ namespace Iop
 		virtual std::string		GetFunctionName(unsigned int) const override;
 		virtual void			Invoke(CMIPS&, unsigned int) override;
 
-		void					SetIsoImage(CISO9660*);
+		void					SetOpticalMedia(COpticalMedia*);
 
 		void					LoadState(Framework::CZipArchiveReader&);
 		void					SaveState(Framework::CZipArchiveWriter&);
 
 		uint32					CdReadClockDirect(uint8*);
+		uint32					CdGetDiskTypeDirect(COpticalMedia*);
 
 	private:
 		enum CDVD_FUNCTION
@@ -64,7 +71,7 @@ namespace Iop
 		uint32					CdLayerSearchFile(uint32, uint32, uint32);
 
 		CIopBios&				m_bios;
-		CISO9660*				m_image = nullptr;
+		COpticalMedia*			m_opticalMedia = nullptr;
 		uint8*					m_ram = nullptr;
 
 		uint32					m_callbackPtr = 0;

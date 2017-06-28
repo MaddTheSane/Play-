@@ -4,7 +4,6 @@
 #include "../Log.h"
 #include "../MIPS.h"
 #include "../MemoryUtils.h"
-#include "../Ps2Const.h"
 #include "offsetof_def.h"
 #include "Vpu.h"
 
@@ -27,20 +26,8 @@ enum CTRL_REG
 	CTRL_REG_CMSAR1   = 31,
 };
 
-CCOP_VU::CCOP_VU(MIPS_REGSIZE nRegSize) 
+CCOP_VU::CCOP_VU(MIPS_REGSIZE nRegSize)
 : CMIPSCoprocessor(nRegSize)
-, m_nFT(0)
-, m_nFS(0)
-, m_nFD(0)
-, m_nDest(0)
-, m_nFTF(0)
-, m_nFSF(0)
-, m_nBc(0)
-, m_nIT(0)
-, m_nIS(0)
-, m_nID(0)
-, m_nImm5(0)
-, m_nImm15(0)
 {
 	SetupReflectionTables();
 }
@@ -93,6 +80,8 @@ void CCOP_VU::CompileInstruction(uint32 nAddress, CMipsJitter* codeGen, CMIPS* p
 //36
 void CCOP_VU::LQC2()
 {
+	if(m_nFT == 0) return;
+
 	ComputeMemAccessAddr();
 
 	m_codeGen->PushCtx();
@@ -376,7 +365,7 @@ void CCOP_VU::VMAXi()
 //1E
 void CCOP_VU::VMULi()
 {
-	VUShared::MULi(m_codeGen, m_nDest, m_nFD, m_nFS);
+	VUShared::MULi(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //1F
@@ -388,7 +377,7 @@ void CCOP_VU::VMINIi()
 //20
 void CCOP_VU::VADDq()
 {
-	VUShared::ADDq(m_codeGen, m_nDest, m_nFD, m_nFS);
+	VUShared::ADDq(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //21
@@ -412,13 +401,13 @@ void CCOP_VU::VMADDi()
 //24
 void CCOP_VU::VSUBq()
 {
-	VUShared::SUBq(m_codeGen, m_nDest, m_nFD, m_nFS);
+	VUShared::SUBq(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //25
 void CCOP_VU::VMSUBq()
 {
-	VUShared::MSUBq(m_codeGen, m_nDest, m_nFD, m_nFS);
+	VUShared::MSUBq(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //26
@@ -430,7 +419,7 @@ void CCOP_VU::VSUBi()
 //27
 void CCOP_VU::VMSUBi()
 {
-	VUShared::MSUBi(m_codeGen, m_nDest, m_nFD, m_nFS);
+	VUShared::MSUBi(m_codeGen, m_nDest, m_nFD, m_nFS, 0);
 }
 
 //28
@@ -569,7 +558,7 @@ void CCOP_VU::VX3()
 //
 void CCOP_VU::VADDAbc()
 {
-	VUShared::ADDAbc(m_codeGen, m_nDest, m_nFS, m_nFT, m_nBc);
+	VUShared::ADDAbc(m_codeGen, m_nDest, m_nFS, m_nFT, m_nBc, 0);
 }
 
 //
@@ -615,13 +604,13 @@ void CCOP_VU::VFTOI0()
 //07
 void CCOP_VU::VMULAq()
 {
-	VUShared::MULAq(m_codeGen, m_nDest, m_nFS);
+	VUShared::MULAq(m_codeGen, m_nDest, m_nFS, 0);
 }
 
 //0A
 void CCOP_VU::VADDA()
 {
-	VUShared::ADDA(m_codeGen, m_nDest, m_nFS, m_nFT);
+	VUShared::ADDA(m_codeGen, m_nDest, m_nFS, m_nFT, 0);
 }
 
 //0B
@@ -639,7 +628,7 @@ void CCOP_VU::VMOVE()
 //0D
 void CCOP_VU::VLQI()
 {
-	VUShared::LQI(m_codeGen, m_nDest, m_nIT, m_nIS, PS2::VUMEM0ADDR);
+	VUShared::LQI(m_codeGen, m_nDest, m_nIT, m_nIS, m_vuMemAddressMask);
 }
 
 //0E
@@ -703,7 +692,7 @@ void CCOP_VU::VMR32()
 //0D
 void CCOP_VU::VSQI()
 {
-	VUShared::SQI(m_codeGen, m_nDest, m_nIS, m_nIT, PS2::VUMEM0ADDR);
+	VUShared::SQI(m_codeGen, m_nDest, m_nIS, m_nIT, m_vuMemAddressMask);
 }
 
 //0E
@@ -743,13 +732,13 @@ void CCOP_VU::VFTOI12()
 //07
 void CCOP_VU::VMULAi()
 {
-	VUShared::MULAi(m_codeGen, m_nDest, m_nFS);
+	VUShared::MULAi(m_codeGen, m_nDest, m_nFS, 0);
 }
 
 //0A
 void CCOP_VU::VMULA()
 {
-	VUShared::MULA(m_codeGen, m_nDest, m_nFS, m_nFT);
+	VUShared::MULA(m_codeGen, m_nDest, m_nFS, m_nFT, 0);
 }
 
 //0B
@@ -761,7 +750,7 @@ void CCOP_VU::VOPMULA()
 //0D
 void CCOP_VU::VLQD()
 {
-	VUShared::LQD(m_codeGen, m_nDest, m_nIT, m_nIS, PS2::VUMEM0ADDR);
+	VUShared::LQD(m_codeGen, m_nDest, m_nIT, m_nIS, m_vuMemAddressMask);
 }
 
 //0E
@@ -773,7 +762,7 @@ void CCOP_VU::VRSQRT()
 //0F
 void CCOP_VU::VILWR()
 {
-	VUShared::ILWR(m_codeGen, m_nDest, m_nIT, m_nIS, PS2::VUMEM0ADDR);
+	VUShared::ILWR(m_codeGen, m_nDest, m_nIT, m_nIS, m_vuMemAddressMask);
 }
 
 //10
@@ -825,7 +814,7 @@ void CCOP_VU::VNOP()
 //0D
 void CCOP_VU::VSQD()
 {
-	VUShared::SQD(m_codeGen, m_nDest, m_nIS, m_nIT, PS2::VUMEM0ADDR);
+	VUShared::SQD(m_codeGen, m_nDest, m_nIS, m_nIT, m_vuMemAddressMask);
 }
 
 //0E
@@ -837,7 +826,7 @@ void CCOP_VU::VWAITQ()
 //0F
 void CCOP_VU::VISWR()
 {
-	VUShared::ISWR(m_codeGen, m_nDest, m_nIT, m_nIS, PS2::VUMEM0ADDR);
+	VUShared::ISWR(m_codeGen, m_nDest, m_nIT, m_nIS, m_vuMemAddressMask);
 }
 
 //10

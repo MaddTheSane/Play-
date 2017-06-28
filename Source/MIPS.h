@@ -48,7 +48,7 @@ struct MIPSSTATE
 	uint32				nDelayedJumpAddr;
 	uint32				nHasException;
 
-#ifdef WIN32
+#ifdef _WIN32
 __declspec(align(16))
 #else
 __attribute__((aligned(16)))
@@ -73,7 +73,7 @@ __attribute__((aligned(16)))
 	uint32				nFCSR;
 
 	//COP2
-#ifdef WIN32
+#ifdef _WIN32
 __declspec(align(16))
 #else
 __attribute__((aligned(16)))
@@ -123,7 +123,7 @@ public:
 								~CMIPS();
 	void						ToggleBreakpoint(uint32);
 	bool						IsBranch(uint32);
-	static long					GetBranch(uint16);
+	static int32				GetBranch(uint16);
 	static uint32				TranslateAddress64(CMIPS*, uint32);
 
 	void						Reset();

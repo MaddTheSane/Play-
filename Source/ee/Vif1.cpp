@@ -162,22 +162,12 @@ void CVif1::Cmd_DIRECT(StreamType& stream, CODE nCommand)
 
 	if(nSize != 0)
 	{
-		if(m_directBuffer.size() < nSize)
-		{
-			m_directBuffer.resize(nSize);
-		}
-
-		auto packet = m_directBuffer.data();
-		stream.Read(packet, nSize);
-
-		int32 remainingLength = nSize;
-		while(remainingLength > 0)
-		{
-			uint32 processed = m_gif.ProcessPacket(packet, 0, remainingLength, CGsPacketMetadata(2));
-			packet += processed;
-			remainingLength -= processed;
-			assert(remainingLength >= 0);
-		}
+		auto packet = stream.GetDirectPointer();
+		uint32 processed = m_gif.ProcessMultiplePackets(packet, 0, nSize, CGsPacketMetadata(2));
+		assert(processed <= nSize);
+		stream.Advance(processed);
+		//Adjust size in case not everything was processed by GIF
+		nSize = processed;
 	}
 
 	m_CODE.nIMM -= (nSize / 0x10);

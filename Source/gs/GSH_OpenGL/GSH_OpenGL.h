@@ -29,14 +29,16 @@ public:
 	void							ProcessClutTransfer(uint32, uint32) override;
 	void							ReadFramebuffer(uint32, uint32, void*) override;
 
+	Framework::CBitmap				GetScreenshot() override;
+
 protected:
 	void							PalCache_Flush();
 	void							LoadPreferences();
-	virtual void					InitializeImpl() override;
-	virtual void					ReleaseImpl() override;
-	virtual void					ResetImpl() override;
-	virtual void					NotifyPreferencesChangedImpl() override;
-	virtual void					FlipImpl() override;
+	void							InitializeImpl() override;
+	void							ReleaseImpl() override;
+	void							ResetImpl() override;
+	void							NotifyPreferencesChangedImpl() override;
+	void							FlipImpl() override;
 
 	GLuint							m_presentFramebuffer = 0;
 
@@ -71,7 +73,9 @@ private:
 	struct RENDERSTATE
 	{
 		bool		isValid;
-		
+		bool		isTextureStateValid;
+		bool		isFramebufferStateValid;
+
 		//Register State
 		uint64		primReg;
 		uint64		frameReg;
@@ -282,7 +286,6 @@ private:
 	TEXTURE_INFO					PrepareTexture(const TEX0&);
 	GLuint							PreparePalette(const TEX0&);
 
-	uint32							RGBA16ToRGBA32(uint16);
 	float							GetZ(float);
 
 	void							VertexKick(uint8, uint64);

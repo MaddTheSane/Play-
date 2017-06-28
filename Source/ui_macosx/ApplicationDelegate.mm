@@ -5,6 +5,7 @@
 #import "../../tools/PsfPlayer/Source/SH_OpenAL.h"
 #import "Globals.h"
 #import "PreferenceDefs.h"
+#include "ScreenShotUtils.h"
 #import "../ee/PS2OS.h"
 #import "../ScopedVmPauser.h"
 #import "../PS2VM_Preferences.h"
@@ -103,6 +104,25 @@
 	[self setupSoundHandler];
 }
 
+-(IBAction)screenCaptureMenuSelected: (id)sender
+{
+	CScreenShotUtils::TriggerGetScreenshot(g_virtualMachine,
+		[&](int res, const char* msg)->void
+		{
+			if(res == -1)
+			{
+				NSString* msg_str = [[[NSString alloc] initWithUTF8String:msg] autorelease];
+				dispatch_async(dispatch_get_main_queue(),
+				^
+					{
+						NSRunCriticalAlertPanel(msg_str, @"", NULL, NULL, NULL);
+					}
+				);
+			}
+		}
+	);
+}
+
 -(IBAction)bootElfMenuSelected: (id)sender
 {
 	NSOpenPanel* openPanel = [NSOpenPanel openPanel];
@@ -121,7 +141,7 @@
 -(IBAction)bootDiskImageMenuSelected: (id)sender
 {
 	NSOpenPanel* openPanel = [NSOpenPanel openPanel];
-	NSArray* fileTypes = [NSArray arrayWithObjects: @"iso", @"isz", @"cso", nil];
+	NSArray* fileTypes = [NSArray arrayWithObjects: @"iso", @"isz", @"cso", @"bin", nil];
 	openPanel.allowedFileTypes = fileTypes;
 	openPanel.canChooseDirectories = NO;
 	if([openPanel runModal] != NSModalResponseOK)
@@ -238,7 +258,8 @@
 	if(
 	   item == pauseResumeMenuItem ||
 	   item == loadStateMenuItem ||
-	   item == saveStateMenuItem)
+	   item == saveStateMenuItem ||
+	   item == screenCaptureMenuItem)
 	{
 		return hasElf;
 	}

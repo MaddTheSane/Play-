@@ -48,6 +48,7 @@ public:
 		KERNEL_RESULT_ERROR_UNKNOWN_MBXID    = -410,
 		KERNEL_RESULT_ERROR_UNKNOWN_VPLID    = -411,
 		KERNEL_RESULT_ERROR_NOT_DORMANT      = -414,
+		KERNEL_RESULT_ERROR_NOT_WAIT         = -416,
 		KERNEL_RESULT_ERROR_SEMA_ZERO        = -419,
 		KERNEL_RESULT_ERROR_EVF_CONDITION    = -421,
 		KERNEL_RESULT_ERROR_EVF_ILLEGAL_PAT  = -423,
@@ -57,7 +58,7 @@ public:
 
 	enum CONTROL_BLOCK
 	{
-		CONTROL_BLOCK_START	= 0x10,
+		CONTROL_BLOCK_START	= 0x100,
 		CONTROL_BLOCK_END	= 0x10000,
 	};
 
@@ -187,6 +188,7 @@ public:
 	int32						SleepThread();
 	uint32						WakeupThread(uint32, bool);
 	int32						CancelWakeupThread(uint32, bool);
+	int32						ReleaseWaitThread(uint32, bool);
 
 	void						SleepThreadTillVBlankStart();
 	void						SleepThreadTillVBlankEnd();
@@ -487,7 +489,6 @@ private:
 	uint32							LoadExecutable(CELF&, ExecutableRange&);
 	unsigned int					GetElfProgramToLoad(CELF&);
 	void							RelocateElf(CELF&, uint32);
-	static uint32					GetRelocationLinkedSectionIndex(CELF&, uint32);
 	std::string						ReadModuleName(uint32);
 	void							DeleteModules();
 

@@ -23,7 +23,6 @@ struct PRESENTVERTEX
 	float u, v;
 };
 
-#define CUSTOMFVF (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 #define PRESENTFVF (D3DFVF_XYZ | D3DFVF_TEX1)
 
 static const PRESENTVERTEX g_presentVertices[] = 
@@ -35,16 +34,17 @@ static const PRESENTVERTEX g_presentVertices[] =
 	{  1,  1, 0, 1, 0 }
 };
 
+static uint8 MulBy2Clamp(uint8 value)
+{
+	if(value >= 0x80) return 0xFF;
+	return value << 1;
+}
+
 CGSH_Direct3D9::CGSH_Direct3D9(Framework::Win32::CWindow* outputWindow) 
-: m_outputWnd(dynamic_cast<COutputWnd*>(outputWindow))
+: m_outputWnd(outputWindow)
 {
 	memset(&m_renderState, 0, sizeof(m_renderState));
 	m_primitiveMode <<= 0;
-}
-
-CGSH_Direct3D9::~CGSH_Direct3D9()
-{
-
 }
 
 Framework::CBitmap CGSH_Direct3D9::GetFramebuffer(uint64 frameReg)
@@ -178,7 +178,7 @@ void CGSH_Direct3D9::ProcessLocalToLocalTransfer()
 
 void CGSH_Direct3D9::ProcessClutTransfer(uint32, uint32)
 {
-
+	m_renderState.isValid = false;
 }
 
 void CGSH_Direct3D9::ReadFramebuffer(uint32, uint32, void*)
@@ -322,6 +322,8 @@ Framework::CBitmap CGSH_Direct3D9::CreateBitmapFromTexture(const TexturePtr& tex
 				return 16;
 			case PSMT4:
 			case PSMT8:
+			case PSMT8H:
+			case PSMT4HL:
 				return 8;
 			default:
 				assert(false);
@@ -661,9 +663,10 @@ void CGSH_Direct3D9::OnDeviceReset()
 	m_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 	m_device->SetRenderState(D3DRS_ZENABLE, D3DZB_FALSE);
 	m_device->SetRenderState(D3DRS_LIGHTING, FALSE);
+	m_device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
 	m_device->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
 
-	result = m_device->CreateVertexBuffer(4 * sizeof(CUSTOMVERTEX), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, CUSTOMFVF, D3DPOOL_DEFAULT, &m_drawVb, nullptr);
+	result = m_device->CreateVertexBuffer(4 * sizeof(CUSTOMVERTEX), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &m_drawVb, nullptr);
 	assert(SUCCEEDED(result));
 
 	result = m_device->CreateVertexBuffer(4 * sizeof(PRESENTVERTEX), D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, PRESENTFVF, D3DPOOL_DEFAULT, &m_presentVb, nullptr);
@@ -695,7 +698,10 @@ void CGSH_Direct3D9::OnDeviceReset()
 	m_deviceWindowWidth = clientRect.Width();
 	m_deviceWindowHeight = clientRect.Height();
 
-	result = m_device->CreateTexture(256, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_clutTexture, nullptr);
+	result = m_device->CreateTexture(16, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_clutTexture4, nullptr);
+	assert(SUCCEEDED(result));
+
+	result = m_device->CreateTexture(256, 1, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &m_clutTexture8, nullptr);
 	assert(SUCCEEDED(result));
 
 	m_renderState.isValid = false;
@@ -709,7 +715,8 @@ void CGSH_Direct3D9::OnDeviceResetting()
 	m_framebuffers.clear();
 	m_depthbuffers.clear();
 	m_textureCache.Flush();
-	m_clutTexture.Reset();
+	m_clutTexture4.Reset();
+	m_clutTexture8.Reset();
 }
 
 float CGSH_Direct3D9::GetZ(float nZ)
@@ -755,15 +762,6 @@ void CGSH_Direct3D9::Prim_Line()
 
 	nZ1 = GetZ(nZ1);
 	nZ2 = GetZ(nZ2);
-
-	if(m_primitiveMode.nShading)
-	{
-		m_device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
-	}
-	else
-	{
-		m_device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_FLAT);
-	}
 
 	if(m_primitiveMode.nFog)
 	{
@@ -827,17 +825,16 @@ void CGSH_Direct3D9::Prim_Line()
 		result = m_drawVb->Unlock();
 		assert(SUCCEEDED(result));
 
-		// select which vertex format we are using
 		result = m_device->SetVertexDeclaration(m_vertexDeclaration);
 		assert(SUCCEEDED(result));
 
-		// select the vertex buffer to display
 		result = m_device->SetStreamSource(0, m_drawVb, 0, sizeof(CUSTOMVERTEX));
 		assert(SUCCEEDED(result));
 
-		// copy the vertex buffer to the back buffer
 		result = m_device->DrawPrimitive(D3DPT_LINELIST, 0, 1);
 		assert(SUCCEEDED(result));
+
+		m_drawCallCount++;
 	}
 
 	if(m_primitiveMode.nFog)
@@ -878,15 +875,6 @@ void CGSH_Direct3D9::Prim_Triangle()
 	nZ1 = GetZ(nZ1);
 	nZ2 = GetZ(nZ2);
 	nZ3 = GetZ(nZ3);
-
-	if(m_primitiveMode.nShading)
-	{
-		m_device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
-	}
-	else
-	{
-		m_device->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_FLAT);
-	}
 
 	if(m_primitiveMode.nFog)
 	{
@@ -940,6 +928,12 @@ void CGSH_Direct3D9::Prim_Triangle()
 		DWORD color1 = D3DCOLOR_ARGB(rgbaq[1].nA, rgbaq[1].nR, rgbaq[1].nG, rgbaq[1].nB);
 		DWORD color2 = D3DCOLOR_ARGB(rgbaq[2].nA, rgbaq[2].nR, rgbaq[2].nG, rgbaq[2].nB);
 
+		if(m_primitiveMode.nShading == 0)
+		{
+			//Flat shaded triangles use the last color set
+			color0 = color1 = color2;
+		}
+
 		CUSTOMVERTEX vertices[] =
 		{
 			{ nX1, nY1, nZ1, color0, nU1, nV1, nQ1 },
@@ -956,17 +950,16 @@ void CGSH_Direct3D9::Prim_Triangle()
 		result = m_drawVb->Unlock();
 		assert(SUCCEEDED(result));
 
-		// select which vertex format we are using
 		result = m_device->SetVertexDeclaration(m_vertexDeclaration);
 		assert(SUCCEEDED(result));
 
-		// select the vertex buffer to display
 		result = m_device->SetStreamSource(0, m_drawVb, 0, sizeof(CUSTOMVERTEX));
 		assert(SUCCEEDED(result));
 
-		// copy the vertex buffer to the back buffer
 		result = m_device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 1);
 		assert(SUCCEEDED(result));
+
+		m_drawCallCount++;
 	}
 
 	if(m_primitiveMode.nFog)
@@ -1043,17 +1036,16 @@ void CGSH_Direct3D9::Prim_Sprite()
 		result = m_drawVb->Unlock();
 		assert(SUCCEEDED(result));
 
-		// select which vertex format we are using
 		result = m_device->SetVertexDeclaration(m_vertexDeclaration);
 		assert(SUCCEEDED(result));
 
-		// select the vertex buffer to display
 		result = m_device->SetStreamSource(0, m_drawVb, 0, sizeof(CUSTOMVERTEX));
 		assert(SUCCEEDED(result));
 
-		// copy the vertex buffer to the back buffer
 		result = m_device->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
 		assert(SUCCEEDED(result));
+
+		m_drawCallCount++;
 	}
 }
 
@@ -1221,20 +1213,21 @@ void CGSH_Direct3D9::SetupBlendingFunction(uint64 alphaReg)
 		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_DESTALPHA);
 		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVDESTALPHA);
 	}
-	else if((alpha.nA == 0) && (alpha.nB == 1) && (alpha.nC == 2) && (alpha.nD == 1))
+	else if((alpha.nA == ALPHABLEND_ABD_CS) && (alpha.nB == ALPHABLEND_ABD_CD) && (alpha.nC == ALPHABLEND_C_FIX) && (alpha.nD == ALPHABLEND_ABD_CD))
 	{
-		//(Cs - Cd) * FIX + Cd
-		//		-> FIX * Cs + (1 - FIX) * Cd
-
-		uint8 fix = alpha.nFix;
+		//0121 - Cs * FIX + Cd * (1 - FIX)
+		uint8 fix = MulBy2Clamp(alpha.nFix);
 		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_BLENDFACTOR);
 		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVBLENDFACTOR);
 		m_device->SetRenderState(D3DRS_BLENDFACTOR, D3DCOLOR_ARGB(fix, fix, fix, fix));
 	}
-	else if((alpha.nA == 0) && (alpha.nB == 2) && (alpha.nC == 2) && (alpha.nD == 1) && (alpha.nFix == 0x80))
+	else if((alpha.nA == ALPHABLEND_ABD_CS) && (alpha.nB == ALPHABLEND_ABD_ZERO) && (alpha.nC == ALPHABLEND_C_FIX) && (alpha.nD == ALPHABLEND_ABD_CD))
 	{
-		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
+		//0221 - Cs * FIX + Cd
+		uint8 fix = MulBy2Clamp(alpha.nFix);
+		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_BLENDFACTOR);
 		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
+		m_device->SetRenderState(D3DRS_BLENDFACTOR, D3DCOLOR_ARGB(fix, fix, fix, fix));
 	}
 	else if((alpha.nA == 0) && (alpha.nB == 2) && (alpha.nC == 0) && (alpha.nD == 1))
 	{
@@ -1259,14 +1252,19 @@ void CGSH_Direct3D9::SetupBlendingFunction(uint64 alphaReg)
 		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_INVDESTALPHA);
 		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_DESTALPHA);
 	}
-	else if((alpha.nA == 1) && (alpha.nB == 2) && (alpha.nC == 0) && (alpha.nD == 2))
+	else if((alpha.nA == ALPHABLEND_ABD_CD) && (alpha.nB == ALPHABLEND_ABD_ZERO) && (alpha.nC == ALPHABLEND_C_AS) && (alpha.nD == ALPHABLEND_ABD_ZERO))
 	{
-		//Cd * As
+		//1202 - Cd * As
 		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ZERO);
 		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_SRCALPHA);
-
-		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ZERO);
-		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_ONE);
+	}
+	else if((alpha.nA == ALPHABLEND_ABD_CD) && (alpha.nB == ALPHABLEND_ABD_ZERO) && (alpha.nC == ALPHABLEND_C_FIX) && (alpha.nD == ALPHABLEND_ABD_CS))
+	{
+		//1220 -> Cd * FIX + Cs
+		uint8 fix = MulBy2Clamp(alpha.nFix);
+		m_device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_ONE);
+		m_device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_BLENDFACTOR);
+		m_device->SetRenderState(D3DRS_BLENDFACTOR, D3DCOLOR_ARGB(fix, fix, fix, fix));
 	}
 	else if((alpha.nA == ALPHABLEND_ABD_ZERO) && (alpha.nB == ALPHABLEND_ABD_CD) && (alpha.nC == ALPHABLEND_C_AS) && (alpha.nD == ALPHABLEND_ABD_CD))
 	{
@@ -1414,7 +1412,7 @@ void CGSH_Direct3D9::SetupTexture(uint64 tex0Reg, uint64 tex1Reg, uint64 miptbp1
 
 		auto clutTexture = GetClutTexture(tex0);
 
-		m_device->SetTexture(1, m_clutTexture);
+		m_device->SetTexture(1, clutTexture);
 		m_device->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		m_device->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		m_device->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);

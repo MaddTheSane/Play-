@@ -8,6 +8,7 @@
 #include "GSH_OpenGL.h"
 
 #define NUM_SAMPLES 8
+#define FRAMEBUFFER_HEIGHT 1024
 
 const GLenum CGSH_OpenGL::g_nativeClampModes[CGSHandler::CLAMP_MODE_MAX] =
 {
@@ -105,6 +106,7 @@ void CGSH_OpenGL::ResetImpl()
 	m_renderState.isValid = false;
 	m_validGlState = 0;
 	m_drawingToDepth = false;
+	m_primitiveType = PRIM_INVALID;
 }
 
 void CGSH_OpenGL::FlipImpl()
@@ -154,7 +156,7 @@ void CGSH_OpenGL::FlipImpl()
 
 	if(!framebuffer && (fb.GetBufWidth() != 0))
 	{
-		framebuffer = FramebufferPtr(new CFramebuffer(fb.GetBufPtr(), fb.GetBufWidth(), 1024, fb.nPSM, m_fbScale, m_multisampleEnabled));
+		framebuffer = FramebufferPtr(new CFramebuffer(fb.GetBufPtr(), fb.GetBufWidth(), FRAMEBUFFER_HEIGHT, fb.nPSM, m_fbScale, m_multisampleEnabled));
 		m_framebuffers.push_back(framebuffer);
 		PopulateFramebuffer(framebuffer);
 	}
@@ -507,11 +509,6 @@ unsigned int CGSH_OpenGL::GetCurrentReadCircuit()
 	return 0;
 }
 
-uint32 CGSH_OpenGL::RGBA16ToRGBA32(uint16 nColor)
-{
-	return (nColor & 0x8000 ? 0xFF000000 : 0) | ((nColor & 0x7C00) << 9) | ((nColor & 0x03E0) << 6) | ((nColor & 0x001F) << 3);
-}
-
 float CGSH_OpenGL::GetZ(float nZ)
 {
 	if(nZ == 0)
@@ -674,6 +671,7 @@ void CGSH_OpenGL::SetRenderingContext(uint64 primReg)
 	}
 
 	if(!m_renderState.isValid ||
+		!m_renderState.isFramebufferStateValid ||
 		(m_renderState.frameReg != frameReg) ||
 		(m_renderState.zbufReg != zbufReg) ||
 		(m_renderState.scissorReg != scissorReg) ||
@@ -685,6 +683,7 @@ void CGSH_OpenGL::SetRenderingContext(uint64 primReg)
 	}
 
 	if(!m_renderState.isValid ||
+		!m_renderState.isTextureStateValid ||
 		(m_renderState.tex0Reg != tex0Reg) ||
 		(m_renderState.tex1Reg != tex1Reg) ||
 		(m_renderState.texAReg != texAReg) ||
@@ -696,11 +695,8 @@ void CGSH_OpenGL::SetRenderingContext(uint64 primReg)
 		CHECKGLERROR();
 	}
 
-	if(shaderCaps.hasFog &&
-		(
-			!m_renderState.isValid ||
-			(m_renderState.fogColReg != fogColReg)
-		))
+	if(!m_renderState.isValid ||
+		(m_renderState.fogColReg != fogColReg))
 	{
 		FlushVertexBuffer();
 		SetupFogColor(fogColReg);
@@ -713,18 +709,20 @@ void CGSH_OpenGL::SetRenderingContext(uint64 primReg)
 	
 	CHECKGLERROR();
 
-	m_renderState.isValid    = true;
-	m_renderState.primReg    = primReg;
-	m_renderState.alphaReg   = alphaReg;
-	m_renderState.testReg    = testReg;
-	m_renderState.zbufReg    = zbufReg;
-	m_renderState.scissorReg = scissorReg;
-	m_renderState.frameReg   = frameReg;
-	m_renderState.tex0Reg    = tex0Reg;
-	m_renderState.tex1Reg    = tex1Reg;
-	m_renderState.texAReg    = texAReg;
-	m_renderState.clampReg   = clampReg;
-	m_renderState.fogColReg  = fogColReg;
+	m_renderState.isValid                 = true;
+	m_renderState.isTextureStateValid     = true;
+	m_renderState.isFramebufferStateValid = true;
+	m_renderState.primReg                 = primReg;
+	m_renderState.alphaReg                = alphaReg;
+	m_renderState.testReg                 = testReg;
+	m_renderState.zbufReg                 = zbufReg;
+	m_renderState.scissorReg              = scissorReg;
+	m_renderState.frameReg                = frameReg;
+	m_renderState.tex0Reg                 = tex0Reg;
+	m_renderState.tex1Reg                 = tex1Reg;
+	m_renderState.texAReg                 = texAReg;
+	m_renderState.clampReg                = clampReg;
+	m_renderState.fogColReg               = fogColReg;
 }
 
 void CGSH_OpenGL::SetupBlendingFunction(uint64 alphaReg)
@@ -978,7 +976,7 @@ void CGSH_OpenGL::SetupFramebuffer(uint64 frameReg, uint64 zbufReg, uint64 sciss
 	auto framebuffer = FindFramebuffer(frame);
 	if(!framebuffer)
 	{
-		framebuffer = FramebufferPtr(new CFramebuffer(frame.GetBasePtr(), frame.GetWidth(), 1024, frame.nPsm, m_fbScale, m_multisampleEnabled));
+		framebuffer = FramebufferPtr(new CFramebuffer(frame.GetBasePtr(), frame.GetWidth(), FRAMEBUFFER_HEIGHT, frame.nPsm, m_fbScale, m_multisampleEnabled));
 		m_framebuffers.push_back(framebuffer);
 		PopulateFramebuffer(framebuffer);
 	}
@@ -988,7 +986,7 @@ void CGSH_OpenGL::SetupFramebuffer(uint64 frameReg, uint64 zbufReg, uint64 sciss
 	auto depthbuffer = FindDepthbuffer(zbuf, frame);
 	if(!depthbuffer)
 	{
-		depthbuffer = DepthbufferPtr(new CDepthbuffer(zbuf.GetBasePtr(), frame.GetWidth(), 1024, zbuf.nPsm, m_fbScale, m_multisampleEnabled));
+		depthbuffer = DepthbufferPtr(new CDepthbuffer(zbuf.GetBasePtr(), frame.GetWidth(), FRAMEBUFFER_HEIGHT, zbuf.nPsm, m_fbScale, m_multisampleEnabled));
 		m_depthbuffers.push_back(depthbuffer);
 	}
 
@@ -1003,7 +1001,7 @@ void CGSH_OpenGL::SetupFramebuffer(uint64 frameReg, uint64 zbufReg, uint64 sciss
 	assert(result == GL_FRAMEBUFFER_COMPLETE);
 
 	m_renderState.framebufferHandle = framebuffer->m_framebuffer;
-	m_validGlState &= ~GLSTATE_FRAMEBUFFER;
+	m_validGlState |= GLSTATE_FRAMEBUFFER;    //glBindFramebuffer used to set just above
 
 	//We assume that we will be drawing to this framebuffer and that we'll need
 	//to resolve samples at some point if multisampling is enabled
@@ -1497,6 +1495,12 @@ void CGSH_OpenGL::Prim_Triangle()
 	auto color3 = MakeColor(
 		rgbaq[2].nR, rgbaq[2].nG,
 		rgbaq[2].nB, rgbaq[2].nA);
+
+	if(m_PrimitiveMode.nShading == 0)
+	{
+		//Flat shaded triangles use the last color set
+		color1 = color2 = color3;
+	}
 
 	PRIM_VERTEX vertices[] =
 	{
@@ -1995,7 +1999,8 @@ void CGSH_OpenGL::ProcessHostToLocalTransfer()
 	if(m_trxCtx.nDirty)
 	{
 		FlushVertexBuffer();
-		m_renderState.isValid = false;
+		m_renderState.isTextureStateValid = false;
+		m_renderState.isFramebufferStateValid = false;
 
 		auto trxReg = make_convertible<TRXREG>(m_nReg[GS_REG_TRXREG]);
 		auto trxPos = make_convertible<TRXPOS>(m_nReg[GS_REG_TRXPOS]);
@@ -2115,7 +2120,7 @@ void CGSH_OpenGL::ProcessLocalToLocalTransfer()
 void CGSH_OpenGL::ProcessClutTransfer(uint32 csa, uint32)
 {
 	FlushVertexBuffer();
-	m_renderState.isValid = false;
+	m_renderState.isTextureStateValid = false;
 	PalCache_Invalidate(csa);
 }
 
@@ -2129,6 +2134,15 @@ void CGSH_OpenGL::ReadFramebuffer(uint32 width, uint32 height, void* buffer)
 	glFinish();
 	glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, buffer);
 #endif
+}
+
+Framework::CBitmap CGSH_OpenGL::GetScreenshot()
+{
+	GLint viewport[4];
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	auto imgbuffer = Framework::CBitmap(viewport[2], viewport[3], 32);
+	glReadPixels(viewport[0], viewport[1], viewport[2], viewport[3], GL_RGBA, GL_UNSIGNED_BYTE, imgbuffer.GetPixels());
+	return imgbuffer.FlipVertical();
 }
 
 /////////////////////////////////////////////////////////////

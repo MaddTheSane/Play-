@@ -13,6 +13,8 @@ using namespace Iop;
 #define FUNCTION_EXITTHREAD					"ExitThread"
 #define FUNCTION_TERMINATETHREAD			"TerminateThread"
 #define FUNCTION_CHANGETHREADPRIORITY		"ChangeThreadPriority"
+#define FUNCTION_RELEASEWAITTHREAD			"ReleaseWaitThread"
+#define FUNCTION_IRELEASEWAITTHREAD			"iReleaseWaitThread"
 #define FUNCTION_GETTHREADID				"GetThreadId"
 #define FUNCTION_REFERTHREADSTATUS			"ReferThreadStatus"
 #define FUNCTION_IREFERTHREADSTATUS			"iReferThreadStatus"
@@ -30,14 +32,9 @@ using namespace Iop;
 #define FUNCTION_SYSCLOCKTOUSEC				"SysClockToUSec"
 #define FUNCTION_GETCURRENTTHREADPRIORITY	"GetCurrentThreadPriority"
 
-CThbase::CThbase(CIopBios& bios, uint8* ram) :
-m_ram(ram),
-m_bios(bios)
-{
-
-}
-
-CThbase::~CThbase()
+CThbase::CThbase(CIopBios& bios, uint8* ram)
+: m_ram(ram)
+, m_bios(bios)
 {
 
 }
@@ -71,6 +68,12 @@ std::string CThbase::GetFunctionName(unsigned int functionId) const
 		break;
 	case 14:
 		return FUNCTION_CHANGETHREADPRIORITY;
+		break;
+	case 18:
+		return FUNCTION_RELEASEWAITTHREAD;
+		break;
+	case 19:
+		return FUNCTION_IRELEASEWAITTHREAD;
 		break;
 	case 20:
 		return FUNCTION_GETTHREADID;
@@ -167,6 +170,16 @@ void CThbase::Invoke(CMIPS& context, unsigned int functionId)
 			context.m_State.nGPR[CMIPS::A1].nV0
 			));
 		break;
+	case 18:
+		context.m_State.nGPR[CMIPS::V0].nD0 = ReleaseWaitThread(
+			context.m_State.nGPR[CMIPS::A0].nV0
+		);
+		break;
+	case 19:
+		context.m_State.nGPR[CMIPS::V0].nD0 = iReleaseWaitThread(
+			context.m_State.nGPR[CMIPS::A0].nV0
+			);
+		break;
 	case 20:
 		context.m_State.nGPR[CMIPS::V0].nD0 = static_cast<int32>(GetThreadId());
 		break;
@@ -246,7 +259,7 @@ void CThbase::Invoke(CMIPS& context, unsigned int functionId)
 		context.m_State.nGPR[CMIPS::V0].nD0 = static_cast<int32>(GetSystemTimeLow());
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Unknown function (%d) called at (%0.8X).\r\n", functionId, context.m_State.nPC);
+		CLog::GetInstance().Print(LOG_NAME, "Unknown function (%d) called at (%08X).\r\n", functionId, context.m_State.nPC);
 		break;
 	}
 }
@@ -287,9 +300,14 @@ uint32 CThbase::ChangeThreadPriority(uint32 threadId, uint32 newPrio)
 	return m_bios.ChangeThreadPriority(threadId, newPrio);
 }
 
-uint32 CThbase::DelayThread(uint32 delay)
+int32 CThbase::ReleaseWaitThread(uint32 threadId)
 {
-	return m_bios.DelayThread(delay);
+	return m_bios.ReleaseWaitThread(threadId, false);
+}
+
+int32 CThbase::iReleaseWaitThread(uint32 threadId)
+{
+	return m_bios.ReleaseWaitThread(threadId, true);
 }
 
 uint32 CThbase::GetThreadId()
@@ -332,10 +350,15 @@ int32 CThbase::iCancelWakeupThread(uint32 threadId)
 	return m_bios.CancelWakeupThread(threadId, true);
 }
 
+uint32 CThbase::DelayThread(uint32 delay)
+{
+	return m_bios.DelayThread(delay);
+}
+
 uint32 CThbase::GetSystemTime(uint32 resultPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "%d : " FUNCTION_GETSYSTEMTIME "(resultPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "%d : " FUNCTION_GETSYSTEMTIME "(resultPtr = 0x%08X);\r\n",
 		m_bios.GetCurrentThreadIdRaw(), resultPtr);
 #endif
 	uint64* result = nullptr;
@@ -362,7 +385,7 @@ uint32 CThbase::GetSystemTimeLow()
 uint32 CThbase::SetAlarm(uint32 timePtr, uint32 alarmFunction, uint32 param)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "%d : SetAlarm(timePtr = 0x%0.8X, alarmFunction = 0x%0.8X, param = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "%d : SetAlarm(timePtr = 0x%08X, alarmFunction = 0x%08X, param = 0x%08X);\r\n",
 		m_bios.GetCurrentThreadIdRaw(), timePtr, alarmFunction, param);
 #endif
 	return m_bios.SetAlarm(timePtr, alarmFunction, param);
@@ -371,7 +394,7 @@ uint32 CThbase::SetAlarm(uint32 timePtr, uint32 alarmFunction, uint32 param)
 uint32 CThbase::CancelAlarm(uint32 alarmFunction, uint32 param)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "%d : CancelAlarm(alarmFunction = 0x%0.8X, param = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "%d : CancelAlarm(alarmFunction = 0x%08X, param = 0x%08X);\r\n",
 		m_bios.GetCurrentThreadIdRaw(), alarmFunction, param);
 #endif
 	return m_bios.CancelAlarm(alarmFunction, param);
@@ -380,7 +403,7 @@ uint32 CThbase::CancelAlarm(uint32 alarmFunction, uint32 param)
 void CThbase::USecToSysClock(uint32 usec, uint32 timePtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "%d : USecToSysClock(usec = 0x%0.8X, timePtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "%d : USecToSysClock(usec = 0x%08X, timePtr = 0x%08X);\r\n",
 		m_bios.GetCurrentThreadIdRaw(), usec, timePtr);
 #endif
 	uint64* time = (timePtr != 0) ? reinterpret_cast<uint64*>(&m_ram[timePtr]) : NULL;
@@ -393,7 +416,7 @@ void CThbase::USecToSysClock(uint32 usec, uint32 timePtr)
 void CThbase::SysClockToUSec(uint32 timePtr, uint32 secPtr, uint32 usecPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "%d : SysClockToUSec(time = 0x%0.8X, sec = 0x%0.8X, usec = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, "%d : SysClockToUSec(time = 0x%08X, sec = 0x%08X, usec = 0x%08X);\r\n",
 		m_bios.GetCurrentThreadIdRaw(), timePtr, secPtr, usecPtr);
 #endif
 	uint64* time = (timePtr != 0) ? reinterpret_cast<uint64*>(&m_ram[timePtr]) : NULL;

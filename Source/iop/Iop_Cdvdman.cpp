@@ -82,6 +82,23 @@ uint32 CCdvdman::CdReadClockDirect(uint8* clockBuffer)
 	return 1;
 }
 
+uint32 CCdvdman::CdGetDiskTypeDirect(COpticalMedia* opticalMedia)
+{
+	//Assert just to make sure that we're not handling different optical medias
+	//(Only one can be inserted at once)
+	assert(m_opticalMedia == opticalMedia);
+	switch(m_opticalMedia->GetTrackDataType(0))
+	{
+	case COpticalMedia::TRACK_DATA_TYPE_MODE2_2352:
+		return CCdvdman::CDVD_DISKTYPE_PS2CD;
+		break;
+	case COpticalMedia::TRACK_DATA_TYPE_MODE1_2048:
+	default:
+		return CCdvdman::CDVD_DISKTYPE_PS2DVD;
+		break;
+	}
+}
+
 std::string CCdvdman::GetId() const
 {
 	return "cdvdman";
@@ -253,9 +270,9 @@ void CCdvdman::Invoke(CMIPS& ctx, unsigned int functionId)
 	}
 }
 
-void CCdvdman::SetIsoImage(CISO9660* image)
+void CCdvdman::SetOpticalMedia(COpticalMedia* opticalMedia)
 {
-	m_image = image;
+	m_opticalMedia = opticalMedia;
 }
 
 uint32 CCdvdman::CdInit(uint32 mode)
@@ -270,7 +287,7 @@ uint32 CCdvdman::CdInit(uint32 mode)
 
 uint32 CCdvdman::CdRead(uint32 startSector, uint32 sectorCount, uint32 bufferPtr, uint32 modePtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREAD "(startSector = 0x%X, sectorCount = 0x%X, bufferPtr = 0x%0.8X, modePtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREAD "(startSector = 0x%X, sectorCount = 0x%X, bufferPtr = 0x%08X, modePtr = 0x%08X);\r\n",
 		startSector, sectorCount, bufferPtr, modePtr);
 	if(modePtr != 0)
 	{
@@ -278,13 +295,14 @@ uint32 CCdvdman::CdRead(uint32 startSector, uint32 sectorCount, uint32 bufferPtr
 		//Does that make sure it's 2048 byte mode?
 		assert(mode[2] == 0);
 	}
-	if(m_image != NULL && bufferPtr != 0)
+	if(m_opticalMedia && (bufferPtr != 0))
 	{
 		uint8* buffer = &m_ram[bufferPtr];
-		uint32 sectorSize = 2048;
+		static const uint32 sectorSize = 2048;
+		auto fileSystem = m_opticalMedia->GetFileSystem();
 		for(unsigned int i = 0; i < sectorCount; i++)
 		{
-			m_image->ReadBlock(startSector + i, buffer);
+			fileSystem->ReadBlock(startSector + i, buffer);
 			buffer += sectorSize;
 		}
 	}
@@ -336,13 +354,13 @@ uint32 CCdvdman::CdSearchFile(uint32 fileInfoPtr, uint32 namePtr)
 	}
 
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSEARCHFILE "(fileInfo = 0x%0.8X, name = '%s');\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSEARCHFILE "(fileInfo = 0x%08X, name = '%s');\r\n",
 		fileInfoPtr, name);
 #endif
 
 	uint32 result = 0;
 
-	if(m_image != NULL && name != NULL && fileInfo != NULL)
+	if(m_opticalMedia && name && fileInfo)
 	{
 		std::string fixedPath(name);
 
@@ -355,7 +373,8 @@ uint32 CCdvdman::CdSearchFile(uint32 fileInfoPtr, uint32 namePtr)
 		}
 
 		ISO9660::CDirectoryRecord record;
-		if(m_image->GetFileRecord(&record, fixedPath.c_str()))
+		auto fileSystem = m_opticalMedia->GetFileSystem();
+		if(fileSystem->GetFileRecord(&record, fixedPath.c_str()))
 		{
 			fileInfo->sector	= record.GetPosition();
 			fileInfo->size		= record.GetDataLength();
@@ -384,8 +403,7 @@ uint32 CCdvdman::CdSync(uint32 mode)
 uint32 CCdvdman::CdGetDiskType()
 {
 	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDGETDISKTYPE "();\r\n");
-	//0x14 = PS2DVD
-	return 0x14;
+	return CdGetDiskTypeDirect(m_opticalMedia);
 }
 
 uint32 CCdvdman::CdDiskReady(uint32 mode)
@@ -398,7 +416,7 @@ uint32 CCdvdman::CdDiskReady(uint32 mode)
 
 uint32 CCdvdman::CdTrayReq(uint32 mode, uint32 trayCntPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDTRAYREQ "(mode = %d, trayCntPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDTRAYREQ "(mode = %d, trayCntPtr = 0x%08X);\r\n",
 		mode, trayCntPtr);
 
 	auto trayCnt = reinterpret_cast<uint32*>(m_ram + trayCntPtr);
@@ -409,7 +427,7 @@ uint32 CCdvdman::CdTrayReq(uint32 mode, uint32 trayCntPtr)
 
 uint32 CCdvdman::CdReadClock(uint32 clockPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREADCLOCK "(clockPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREADCLOCK "(clockPtr = 0x%08X);\r\n",
 		clockPtr);
 
 	auto clockBuffer = m_ram + clockPtr;
@@ -424,7 +442,7 @@ uint32 CCdvdman::CdStatus()
 
 uint32 CCdvdman::CdCallback(uint32 callbackPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDCALLBACK "(callbackPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDCALLBACK "(callbackPtr = 0x%08X);\r\n",
 		callbackPtr);
 
 	uint32 oldCallbackPtr = m_callbackPtr;
@@ -434,7 +452,7 @@ uint32 CCdvdman::CdCallback(uint32 callbackPtr)
 
 uint32 CCdvdman::CdStInit(uint32 bufMax, uint32 bankMax, uint32 bufPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTINIT "(bufMax = %d, bankMax = %d, bufPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTINIT "(bufMax = %d, bankMax = %d, bufPtr = 0x%08X);\r\n",
 		bufMax, bankMax, bufPtr);
 	m_streamPos = 0;
 	return 1;
@@ -442,11 +460,12 @@ uint32 CCdvdman::CdStInit(uint32 bufMax, uint32 bankMax, uint32 bufPtr)
 
 uint32 CCdvdman::CdStRead(uint32 sectors, uint32 bufPtr, uint32 mode, uint32 errPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTREAD "(sectors = %d, bufPtr = 0x%0.8X, mode = %d, errPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTREAD "(sectors = %d, bufPtr = 0x%08X, mode = %d, errPtr = 0x%08X);\r\n",
 		sectors, bufPtr, mode, errPtr);
+	auto fileSystem = m_opticalMedia->GetFileSystem();
 	for(unsigned int i = 0; i < sectors; i++)
 	{
-		m_image->ReadBlock(m_streamPos, m_ram + (bufPtr + (i * 0x800)));
+		fileSystem->ReadBlock(m_streamPos, m_ram + (bufPtr + (i * 0x800)));
 		m_streamPos++;
 	}
 	if(errPtr != 0)
@@ -459,7 +478,7 @@ uint32 CCdvdman::CdStRead(uint32 sectors, uint32 bufPtr, uint32 mode, uint32 err
 
 uint32 CCdvdman::CdStStart(uint32 sector, uint32 modePtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTSTART "(sector = %d, modePtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDSTSTART "(sector = %d, modePtr = 0x%08X);\r\n",
 		sector, modePtr);
 	m_streamPos = sector;
 	return 1;
@@ -487,7 +506,7 @@ uint32 CCdvdman::CdStSeekF(uint32 sector)
 
 uint32 CCdvdman::CdReadDvdDualInfo(uint32 onDualPtr, uint32 layer1StartPtr)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREADDVDDUALINFO "(onDualPtr = 0x%0.8X, layer1StartPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDREADDVDDUALINFO "(onDualPtr = 0x%08X, layer1StartPtr = 0x%08X);\r\n",
 		onDualPtr, layer1StartPtr);
 
 	auto onDual = reinterpret_cast<uint32*>(m_ram + onDualPtr);
@@ -500,7 +519,7 @@ uint32 CCdvdman::CdReadDvdDualInfo(uint32 onDualPtr, uint32 layer1StartPtr)
 
 uint32 CCdvdman::CdLayerSearchFile(uint32 fileInfoPtr, uint32 namePtr, uint32 layer)
 {
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDLAYERSEARCHFILE "(fileInfoPtr = 0x%0.8X, namePtr = 0x%0.8X, layer = %d);\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_CDLAYERSEARCHFILE "(fileInfoPtr = 0x%08X, namePtr = 0x%08X, layer = %d);\r\n",
 		fileInfoPtr, namePtr, layer);
 	assert(layer == 0);
 	return CdSearchFile(fileInfoPtr, namePtr);

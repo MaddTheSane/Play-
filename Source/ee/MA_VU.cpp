@@ -1,15 +1,11 @@
 #include "MA_VU.h"
 #include "../MIPS.h"
 
-CMA_VU::CMA_VU()
+CMA_VU::CMA_VU(uint32 vuMemAddressMask)
 : CMIPSArchitecture(MIPS_REGSIZE_64)
+, m_Lower(vuMemAddressMask)
 {
 	SetupReflectionTables();
-}
-
-CMA_VU::~CMA_VU()
-{
-
 }
 
 void CMA_VU::CompileInstruction(uint32 nAddress, CMipsJitter* codeGen, CMIPS* pCtx)

@@ -5,12 +5,14 @@
 #include <QLabel>
 #include <QKeyEvent>
 #include <QXmlStreamReader>
+#include <QDir>
 
 #include "AppConfig.h"
 #include "PS2VM.h"
 #include "PS2VM_Preferences.h"
 #include "StatsManager.h"
 #include "PH_HidUnix.h"
+#include "ElidedLabel.h"
 
 
 namespace Ui {
@@ -41,13 +43,18 @@ private:
     void RegisterPreferences();
     void BootElf(const char*);
     void BootCDROM();
+    void saveState(int);
+    void loadState(int);
+    void toggleFullscreen();
 
     Ui::MainWindow *ui;
 
     QWindow* m_openglpanel;
+    QLabel *gameIDLabel;
     QLabel* fpsLabel;
     QLabel* m_dcLabel;
     QLabel* m_stateLabel;
+    ElidedLabel* m_msgLabel;
     CStatsManager* StatsManager;
     CPH_HidUnix* m_padhandler = nullptr;
     QTimer *m_fpstimer = nullptr;
@@ -64,6 +71,7 @@ private:
 
     };
     lastOpenCommand* m_lastOpenCommand = nullptr;
+    QString m_lastpath = QDir::homePath();
 
     QString ReadElementValue(QXmlStreamReader &Rxml);
 protected:
@@ -81,8 +89,6 @@ private slots:
     void keyPressEvent(QKeyEvent *);
     void keyReleaseEvent(QKeyEvent *);
     void on_actionSettings_triggered();
-    void saveState();
-    void loadState();
     void on_actionPause_Resume_triggered();
     void on_actionAbout_triggered();
     void focusOutEvent(QFocusEvent*) Q_DECL_OVERRIDE;
@@ -92,6 +98,8 @@ private slots:
     void on_actionMemory_Card_Manager_triggered();
     void on_actionVFS_Manager_triggered();
     void on_actionController_Manager_triggered();
+    void on_actionCapture_Screen_triggered();
+    void doubleClickEvent(QMouseEvent*);
 };
 
 #endif // MAINWINDOW_H

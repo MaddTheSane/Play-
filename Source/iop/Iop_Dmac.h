@@ -1,7 +1,8 @@
-#ifndef _IOP_DMAC_H_
-#define _IOP_DMAC_H_
+#pragma once
 
 #include "Types.h"
+#include "zip/ZipArchiveWriter.h"
+#include "zip/ZipArchiveReader.h"
 #include "Iop_DmacChannel.h"
 
 namespace Iop
@@ -37,12 +38,15 @@ namespace Iop
 		};
 
 						CDmac(uint8*, CIntc&);
-		virtual			~CDmac();
+		virtual			~CDmac() = default;
 
 		void			Reset();
 		void			SetReceiveFunction(unsigned int, const Dmac::CChannel::ReceiveFunctionType&);
 		uint32			ReadRegister(uint32);
 		uint32			WriteRegister(uint32, uint32);
+
+		void			LoadState(Framework::CZipArchiveReader&);
+		void			SaveState(Framework::CZipArchiveWriter&);
 
 		void			ResumeDma(unsigned int);
 
@@ -71,5 +75,3 @@ namespace Iop
 		CIntc&			m_intc;
 	};
 }
-
-#endif

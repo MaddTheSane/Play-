@@ -10,7 +10,7 @@ namespace Iop
 	{
 	public:
 						CThbase(CIopBios&, uint8*);
-		virtual			~CThbase();
+		virtual			~CThbase() = default;
 
 		std::string		GetId() const override;
 		std::string		GetFunctionName(unsigned int) const override;
@@ -33,7 +33,8 @@ namespace Iop
 		uint32			ExitThread();
 		uint32			TerminateThread(uint32);
 		uint32			ChangeThreadPriority(uint32, uint32);
-		uint32			DelayThread(uint32);
+		int32			ReleaseWaitThread(uint32);
+		int32			iReleaseWaitThread(uint32);
 		uint32			GetThreadId();
 		uint32			ReferThreadStatus(uint32, uint32);
 		uint32			iReferThreadStatus(uint32, uint32);
@@ -42,6 +43,7 @@ namespace Iop
 		uint32			iWakeupThread(uint32);
 		int32			CancelWakeupThread(uint32);
 		int32			iCancelWakeupThread(uint32);
+		uint32			DelayThread(uint32);
 		uint32			GetSystemTime(uint32);
 		uint32			GetSystemTimeLow();
 		uint32			SetAlarm(uint32, uint32, uint32);

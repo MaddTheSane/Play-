@@ -5,90 +5,105 @@
 
 using namespace Iop;
 
-#define LOG_NAME						"iop_vblank"
-#define FUNCTION_WAITVBLANKSTART		"WaitVblankStart"
-#define FUNCTION_WAITVBLANKEND			"WaitVblankEnd"
-#define FUNCTION_REGISTERVBLANKHANDLER	"RegisterVblankHandler"
+#define LOG_NAME    "iop_vblank"
 
-CVblank::CVblank(CIopBios& bios) :
-m_bios(bios)
-{
+#define FUNCTION_WAITVBLANKSTART       "WaitVblankStart"
+#define FUNCTION_WAITVBLANKEND         "WaitVblankEnd"
+#define FUNCTION_WAITVBLANK            "WaitVblank"
+#define FUNCTION_REGISTERVBLANKHANDLER "RegisterVblankHandler"
 
-}
-
-CVblank::~CVblank()
+CVblank::CVblank(CIopBios& bios)
+: m_bios(bios)
 {
 
 }
 
 std::string CVblank::GetId() const
 {
-    return "vblank";
+	return "vblank";
 }
 
 std::string CVblank::GetFunctionName(unsigned int functionId) const
 {
-    switch(functionId)
-    {
-    case 4:
-        return FUNCTION_WAITVBLANKSTART;
-        break;
-    case 5:
-        return FUNCTION_WAITVBLANKEND;
-        break;
+	switch(functionId)
+	{
+	case 4:
+		return FUNCTION_WAITVBLANKSTART;
+		break;
+	case 5:
+		return FUNCTION_WAITVBLANKEND;
+		break;
+	case 6:
+		return FUNCTION_WAITVBLANK;
+		break;
 	case 8:
 		return FUNCTION_REGISTERVBLANKHANDLER;
 		break;
-    default:
-        return "unknown";
-        break;
-    }
+	default:
+		return "unknown";
+		break;
+	}
 }
 
 void CVblank::Invoke(CMIPS& context, unsigned int functionId)
 {
-    switch(functionId)
-    {
-    case 4:
-        WaitVblankStart();
-        break;
-    case 5:
-        WaitVblankEnd();
-        break;
+	switch(functionId)
+	{
+	case 4:
+		context.m_State.nGPR[CMIPS::V0].nD0 = WaitVblankStart();
+		break;
+	case 5:
+		context.m_State.nGPR[CMIPS::V0].nD0 = WaitVblankEnd();
+		break;
+	case 6:
+		context.m_State.nGPR[CMIPS::V0].nD0 = WaitVblank();
+		break;
 	case 8:
-        context.m_State.nGPR[CMIPS::V0].nD0 = RegisterVblankHandler(
+		context.m_State.nGPR[CMIPS::V0].nD0 = RegisterVblankHandler(
 			context,
-            context.m_State.nGPR[CMIPS::A0].nV0,
-            context.m_State.nGPR[CMIPS::A1].nV0,
-            context.m_State.nGPR[CMIPS::A2].nV0,
+			context.m_State.nGPR[CMIPS::A0].nV0,
+			context.m_State.nGPR[CMIPS::A1].nV0,
+			context.m_State.nGPR[CMIPS::A2].nV0,
 			context.m_State.nGPR[CMIPS::A3].nV0);
 		break;
-    default:
-        CLog::GetInstance().Print(LOG_NAME, "Unknown function called (%d).\r\n", functionId);
-        break;
-    }
+	default:
+		CLog::GetInstance().Print(LOG_NAME, "Unknown function called (%d).\r\n", functionId);
+		break;
+	}
 }
 
-void CVblank::WaitVblankStart()
+int32 CVblank::WaitVblankStart()
 {
 #ifdef _DEBUG
 	CLog::GetInstance().Print(LOG_NAME, FUNCTION_WAITVBLANKSTART "();\r\n");
 #endif
 	m_bios.SleepThreadTillVBlankStart();
+	return 0;
 }
 
-void CVblank::WaitVblankEnd()
+int32 CVblank::WaitVblankEnd()
 {
 #ifdef _DEBUG
 	CLog::GetInstance().Print(LOG_NAME, FUNCTION_WAITVBLANKEND "();\r\n");
 #endif
 	m_bios.SleepThreadTillVBlankEnd();
+	return 0;
 }
 
-uint32 CVblank::RegisterVblankHandler(CMIPS& context, uint32 startEnd, uint32 priority, uint32 handlerPtr, uint32 handlerParam)
+int32 CVblank::WaitVblank()
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, FUNCTION_REGISTERVBLANKHANDLER "(startEnd = %d, priority = %d, handler = 0x%0.8X, arg = 0x%0.8X).\r\n",
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_WAITVBLANK "();\r\n");
+#endif
+	//TODO: Skip waiting if we're already in Vblank
+	m_bios.SleepThreadTillVBlankStart();
+	return 0;
+}
+
+int32 CVblank::RegisterVblankHandler(CMIPS& context, uint32 startEnd, uint32 priority, uint32 handlerPtr, uint32 handlerParam)
+{
+#ifdef _DEBUG
+	CLog::GetInstance().Print(LOG_NAME, FUNCTION_REGISTERVBLANKHANDLER "(startEnd = %d, priority = %d, handler = 0x%08X, arg = 0x%08X).\r\n",
 		startEnd, priority, handlerPtr, handlerParam);
 #endif
 	uint32 intrLine = startEnd ? CIntc::LINE_EVBLANK : CIntc::LINE_VBLANK;

@@ -151,7 +151,7 @@ CVif& CVpu::GetVif()
 
 void CVpu::ExecuteMicroProgram(uint32 nAddress)
 {
-	CLog::GetInstance().Print(LOG_NAME, "Starting microprogram execution at 0x%0.8X.\r\n", nAddress);
+	CLog::GetInstance().Print(LOG_NAME, "Starting microprogram execution at 0x%08X.\r\n", nAddress);
 
 	m_ctx->m_State.nPC = nAddress;
 	m_ctx->m_State.pipeTime = 0;
@@ -193,7 +193,7 @@ void CVpu::ProcessXgKick(uint32 address)
 	memcpy(metadata.microMem1, GetMicroMemoryMiniState(), PS2::MICROMEM1SIZE);
 #endif
 
-	m_gif.ProcessPacket(GetVuMemory(), address, PS2::VUMEM1SIZE, metadata);
+	m_gif.ProcessSinglePacket(GetVuMemory(), address, PS2::VUMEM1SIZE, metadata);
 
 #ifdef DEBUGGER_INCLUDED
 	SaveMiniState();

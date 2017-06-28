@@ -5,7 +5,6 @@
 #include "win32/Window.h"
 #include "win32/ComPtr.h"
 #include "bitmap/Bitmap.h"
-#include "OutputWnd.h"
 #include "nuanceur/Builder.h"
 #ifdef _DEBUG
 #define D3D_DEBUG_INFO
@@ -25,7 +24,7 @@ public:
 	};
 
 									CGSH_Direct3D9(Framework::Win32::CWindow*);
-	virtual							~CGSH_Direct3D9();
+	virtual							~CGSH_Direct3D9() = default;
 
 	void							ProcessHostToLocalTransfer() override;
 	void							ProcessLocalToHostTransfer() override;
@@ -197,6 +196,7 @@ private:
 	void							TexUpdater_Psm32(D3DLOCKED_RECT*, uint32, uint32, unsigned int, unsigned int, unsigned int, unsigned int);
 	template <typename> void		TexUpdater_Psm16(D3DLOCKED_RECT*, uint32, uint32, unsigned int, unsigned int, unsigned int, unsigned int);
 	template <typename> void		TexUpdater_Psm48(D3DLOCKED_RECT*, uint32, uint32, unsigned int, unsigned int, unsigned int, unsigned int);
+	template <uint32, uint32> void	TexUpdater_Psm48H(D3DLOCKED_RECT*, uint32, uint32, unsigned int, unsigned int, unsigned int, unsigned int);
 
 	VertexShaderPtr					CreateVertexShader(SHADERCAPS);
 	PixelShaderPtr					CreatePixelShader(SHADERCAPS);
@@ -208,7 +208,7 @@ private:
 	bool							m_alphaBlendingEnabled = true;
 	bool							m_alphaTestingEnabled = true;
 
-	COutputWnd*						m_outputWnd = nullptr;
+	Framework::Win32::CWindow*		m_outputWnd = nullptr;
 	Direct3DPtr						m_d3d;
 	DevicePtr						m_device;
 
@@ -232,7 +232,8 @@ private:
 	CGsTextureCache<TexturePtr>		m_textureCache;
 	FramebufferList					m_framebuffers;
 	DepthbufferList					m_depthbuffers;
-	TexturePtr						m_clutTexture;
+	TexturePtr						m_clutTexture4;
+	TexturePtr						m_clutTexture8;
 
 	VertexDeclarationPtr			m_vertexDeclaration;
 	VertexShaderMap					m_vertexShaders;

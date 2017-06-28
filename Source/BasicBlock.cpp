@@ -115,7 +115,7 @@ void CBasicBlock::Compile()
 		jmethod.method_size = m_function.GetSize();
 		jmethod.line_number_size = 0;
 
-		auto functionName = string_format("BasicBlock_0x%0.8X_0x%0.8X", m_begin, m_end);
+		auto functionName = string_format("BasicBlock_0x%08X_0x%08X", m_begin, m_end);
 
 		jmethod.method_name = const_cast<char*>(functionName.c_str());
 		iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, reinterpret_cast<void*>(&jmethod));
@@ -180,7 +180,22 @@ void CBasicBlock::Compile()
 
 void CBasicBlock::CompileRange(CMipsJitter* jitter)
 {
-	for(uint32 address = m_begin; address <= m_end; address += 4)
+	uint32 fixedEnd = m_end;
+	bool needsPcAdjust = false;
+
+	//Update block end because MipsAnalysis might not include an instruction
+	//in a delay slot when cutting a function into basic blocks
+	{
+		uint32 endOpcode = m_context.m_pMemoryMap->GetWord(m_end);
+		auto branchType = m_context.m_pArch->IsInstructionBranch(&m_context, m_end, endOpcode);
+		if(branchType == MIPS_BRANCH_NORMAL)
+		{
+			fixedEnd += 4;
+			needsPcAdjust = true;
+		}
+	}
+
+	for(uint32 address = m_begin; address <= fixedEnd; address += 4)
 	{
 		m_context.m_pArch->CompileInstruction(
 			address, 
@@ -188,6 +203,20 @@ void CBasicBlock::CompileRange(CMipsJitter* jitter)
 			&m_context);
 		//Sanity check
 		assert(jitter->IsStackEmpty());
+	}
+
+	//Adjust PC to make sure we don't execute the delay slot at the next block
+	if(needsPcAdjust)
+	{
+		jitter->PushCst(MIPS_INVALID_PC);
+		jitter->PushRel(offsetof(CMIPS, m_State.nDelayedJumpAddr));
+
+		jitter->BeginIf(Jitter::CONDITION_EQ);
+		{
+			jitter->PushCst(fixedEnd + 4);
+			jitter->PullRel(offsetof(CMIPS, m_State.nDelayedJumpAddr));
+		}
+		jitter->EndIf();
 	}
 }
 

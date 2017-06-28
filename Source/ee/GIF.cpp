@@ -11,6 +11,7 @@
 
 #define STATE_REGS_XML        ("gif/regs.xml")
 #define STATE_REGS_M3P        ("M3P")
+#define STATE_REGS_ACTIVEPATH ("ActivePath")
 #define STATE_REGS_LOOPS      ("LOOPS")
 #define STATE_REGS_CMD        ("CMD")
 #define STATE_REGS_REGS       ("REGS")
@@ -35,14 +36,10 @@ CGIF::CGIF(CGSHandler*& gs, uint8* ram, uint8* spr)
 
 }
 
-CGIF::~CGIF()
-{
-
-}
-
 void CGIF::Reset()
 {
 	m_path3Masked = false;
+	m_activePath = 0;
 	m_loops = 0;
 	m_cmd = 0;
 	m_regs = 0;
@@ -50,12 +47,14 @@ void CGIF::Reset()
 	m_regList = 0;
 	m_eop = false;
 	m_qtemp = 0;
+	m_signalState = SIGNAL_STATE_NONE;
 }
 
 void CGIF::LoadState(Framework::CZipArchiveReader& archive)
 {
 	CRegisterStateFile registerFile(*archive.BeginReadFile(STATE_REGS_XML));
 	m_path3Masked = registerFile.GetRegister32(STATE_REGS_M3P) != 0;
+	m_activePath  = registerFile.GetRegister32(STATE_REGS_ACTIVEPATH);
 	m_loops       = static_cast<uint16>(registerFile.GetRegister32(STATE_REGS_LOOPS));
 	m_cmd         = static_cast<uint8>(registerFile.GetRegister32(STATE_REGS_CMD));
 	m_regs        = static_cast<uint8>(registerFile.GetRegister32(STATE_REGS_REGS));
@@ -69,6 +68,7 @@ void CGIF::SaveState(Framework::CZipArchiveWriter& archive)
 {
 	CRegisterStateFile* registerFile = new CRegisterStateFile(STATE_REGS_XML);
 	registerFile->SetRegister32(STATE_REGS_M3P,        m_path3Masked ? 1 : 0);
+	registerFile->SetRegister32(STATE_REGS_ACTIVEPATH, m_activePath);
 	registerFile->SetRegister32(STATE_REGS_LOOPS,      m_loops);
 	registerFile->SetRegister32(STATE_REGS_CMD,        m_cmd);
 	registerFile->SetRegister32(STATE_REGS_REGS,       m_regs);
@@ -79,7 +79,7 @@ void CGIF::SaveState(Framework::CZipArchiveWriter& archive)
 	archive.InsertFile(registerFile);
 }
 
-uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, uint8* memory, uint32 address, uint32 end)
+uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, const uint8* memory, uint32 address, uint32 end)
 {
 	uint32 start = address;
 
@@ -90,10 +90,7 @@ uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, uint8* memo
 			uint64 temp = 0;
 			uint32 regDesc = (uint32)((m_regList >> ((m_regs - m_regsTemp) * 4)) & 0x0F);
 
-			uint128 packet = *(uint128*)&memory[address];
-			address += 0x10;
-
-			m_regsTemp--;
+			uint128 packet = *reinterpret_cast<const uint128*>(memory + address);
 
 			switch(regDesc)
 			{
@@ -172,7 +169,22 @@ uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, uint8* memo
 				break;
 			case 0x0E:
 				//A + D
-				writeList.push_back(CGSHandler::RegisterWrite(static_cast<uint8>(packet.nD1), packet.nD0));
+				{
+					uint8 reg = static_cast<uint8>(packet.nD1);
+					if(reg == GS_REG_SIGNAL)
+					{
+						//Check if there's already a signal pending
+						auto csr = m_gs->ReadPrivRegister(CGSHandler::GS_CSR);
+						if((m_signalState == SIGNAL_STATE_ENCOUNTERED) || ((csr & CGSHandler::CSR_SIGNAL_EVENT) != 0))
+						{
+							//If there is, we need to wait for previous signal to be cleared
+							m_signalState = SIGNAL_STATE_PENDING;
+							return address - start;
+						}
+						m_signalState = SIGNAL_STATE_ENCOUNTERED;
+					}
+					writeList.push_back(CGSHandler::RegisterWrite(reg, packet.nD0));
+				}
 				break;
 			case 0x0F:
 				//NOP
@@ -181,6 +193,9 @@ uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, uint8* memo
 				assert(0);
 				break;
 			}
+
+			address += 0x10;
+			m_regsTemp--;
 		}
 
 		if(m_regsTemp == 0)
@@ -188,13 +203,12 @@ uint32 CGIF::ProcessPacked(CGSHandler::RegisterWriteList& writeList, uint8* memo
 			m_loops--;
 			m_regsTemp = m_regs;
 		}
-
 	}
 
 	return address - start;
 }
 
-uint32 CGIF::ProcessRegList(CGSHandler::RegisterWriteList& writeList, uint8* memory, uint32 address, uint32 end)
+uint32 CGIF::ProcessRegList(CGSHandler::RegisterWriteList& writeList, const uint8* memory, uint32 address, uint32 end)
 {
 	uint32 start = address;
 
@@ -233,32 +247,28 @@ uint32 CGIF::ProcessRegList(CGSHandler::RegisterWriteList& writeList, uint8* mem
 	return address - start;
 }
 
-uint32 CGIF::ProcessImage(uint8* memory, uint32 address, uint32 end)
+uint32 CGIF::ProcessImage(const uint8* memory, uint32 address, uint32 end)
 {
 	uint16 totalLoops = static_cast<uint16>((end - address) / 0x10);
 	totalLoops = std::min<uint16>(totalLoops, m_loops);
-
-	if(m_gs != NULL)
-	{
-		m_gs->FeedImageData(memory + address, totalLoops * 0x10);
-	}
-
+	m_gs->FeedImageData(memory + address, totalLoops * 0x10);
 	m_loops -= totalLoops;
 
 	return (totalLoops * 0x10);
 }
 
-uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsPacketMetadata& packetMetadata)
+uint32 CGIF::ProcessSinglePacket(const uint8* memory, uint32 address, uint32 end, const CGsPacketMetadata& packetMetadata)
 {
 	static CGSHandler::RegisterWriteList writeList;
 	static const auto flushWriteList =
 		[] (CGSHandler* gs, const CGsPacketMetadata& packetMetadata)
 		{
-			if((gs != nullptr) && !writeList.empty())
+			if(!writeList.empty())
 			{
-				gs->WriteRegisterMassively(writeList.data(), static_cast<unsigned int>(writeList.size()), &packetMetadata);
+				auto currentCapacity = writeList.capacity();
+				gs->WriteRegisterMassively(std::move(writeList), &packetMetadata);
+				writeList.reserve(currentCapacity);
 			}
-			writeList.clear();
 		};
 
 #ifdef PROFILE
@@ -266,10 +276,12 @@ uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsP
 #endif
 
 #if defined(_DEBUG) && defined(DEBUGGER_INCLUDED)
-	CLog::GetInstance().Print(LOG_NAME, "Received GIF packet on path %d at 0x%0.8X of 0x%0.8X bytes.\r\n", 
+	CLog::GetInstance().Print(LOG_NAME, "Received GIF packet on path %d at 0x%08X of 0x%08X bytes.\r\n", 
 		packetMetadata.pathIndex, address, end - address);
 #endif
 
+	assert((m_activePath == 0) || (m_activePath == packetMetadata.pathIndex));
+	m_signalState = SIGNAL_STATE_NONE;
 	writeList.clear();
 
 	uint32 start = address;
@@ -280,14 +292,15 @@ uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsP
 			if(m_eop)
 			{
 				m_eop = false;
+				m_activePath = 0;
 				break;
 			}
 
 			//We need to update the registers
-			auto tag = *reinterpret_cast<TAG*>(&memory[address]);
+			auto tag = *reinterpret_cast<const TAG*>(&memory[address]);
 			address += 0x10;
 #ifdef _DEBUG
-			CLog::GetInstance().Print(LOG_NAME, "TAG(loops = %d, eop = %d, pre = %d, prim = 0x%0.4X, cmd = %d, nreg = %d);\r\n",
+			CLog::GetInstance().Print(LOG_NAME, "TAG(loops = %d, eop = %d, pre = %d, prim = 0x%04X, cmd = %d, nreg = %d);\r\n",
 				tag.loops, tag.eop, tag.pre, tag.prim, tag.cmd, tag.nreg);
 #endif
 
@@ -307,6 +320,7 @@ uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsP
 
 			if(m_regs == 0) m_regs = 0x10;
 			m_regsTemp = m_regs;
+			m_activePath = packetMetadata.pathIndex;
 			continue;
 		}
 		switch(m_cmd)
@@ -326,6 +340,11 @@ uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsP
 			address += ProcessImage(memory, address, end);
 			break;
 		}
+
+		if(m_signalState == SIGNAL_STATE_PENDING)
+		{
+			break;
+		}
 	}
 
 	if(m_loops == 0)
@@ -333,48 +352,72 @@ uint32 CGIF::ProcessPacket(uint8* memory, uint32 address, uint32 end, const CGsP
 		if(m_eop)
 		{
 			m_eop = false;
+			m_activePath = 0;
 		}
 	}
 
 	flushWriteList(m_gs, packetMetadata);
 
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOG_NAME, "Processed 0x%0.8X bytes.\r\n", address - start);
+	CLog::GetInstance().Print(LOG_NAME, "Processed 0x%08X bytes.\r\n", address - start);
 #endif
 
 	return address - start;
 }
 
-uint32 CGIF::ReceiveDMA(uint32 address, uint32 qwc, uint32 unused, bool tagIncluded)
+uint32 CGIF::ProcessMultiplePackets(const uint8* memory, uint32 address, uint32 end, const CGsPacketMetadata& packetMetadata)
 {
-	uint8* memory(nullptr);
-	uint32 size = qwc * 0x10;
+	//This will attempt to process everything from [address, end[ even if it contains multiple GIF packets
 
-	if(tagIncluded)
+	if((m_activePath != 0) && (m_activePath != packetMetadata.pathIndex))
 	{
-		assert(qwc >= 0);
-		size -= 0x10;
-		address += 0x10;
+		//Packet transfer already active on a different path, we can't process this one
+		return 0;
 	}
 
+	uint32 start = address;
+	while(address < end)
+	{
+		address += ProcessSinglePacket(memory, address, end, packetMetadata);
+		if(m_signalState == SIGNAL_STATE_PENDING)
+		{
+			//No point in continuing, GS won't accept any more data
+			break;
+		}
+	}
+	assert(address <= end);
+	return address - start;
+}
+
+uint32 CGIF::ReceiveDMA(uint32 address, uint32 qwc, uint32 unused, bool tagIncluded)
+{
+	uint32 size = qwc * 0x10;
+
+	uint8* memory = nullptr;
 	if(address & 0x80000000)
 	{
 		memory = m_spr;
 		address &= PS2::EE_SPR_SIZE - 1;
+		assert((address + size) <= PS2::EE_SPR_SIZE);
 	}
 	else
 	{
 		memory = m_ram;
 	}
-	
+
+	uint32 start = address;
 	uint32 end = address + size;
 
-	while(address < end)
+	if(tagIncluded)
 	{
-		address += ProcessPacket(memory, address, end, CGsPacketMetadata(3));
+		assert(qwc >= 0);
+		address += 0x10;
 	}
+	
+	address += ProcessMultiplePackets(memory, address, end, CGsPacketMetadata(3));
+	assert(address <= end);
 
-	return qwc;
+	return (address - start) / 0x10;
 }
 
 uint32 CGIF::GetRegister(uint32 address)
@@ -422,7 +465,7 @@ void CGIF::DisassembleGet(uint32 address)
 		CLog::GetInstance().Print(LOG_NAME, "= GIF_STAT.\r\n", address);
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Reading unknown register 0x%0.8X.\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Reading unknown register 0x%08X.\r\n", address);
 		break;
 	}
 }
@@ -432,7 +475,7 @@ void CGIF::DisassembleSet(uint32 address, uint32 value)
 	switch(address)
 	{
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Writing unknown register 0x%0.8X, 0x%0.8X.\r\n", address, value);
+		CLog::GetInstance().Print(LOG_NAME, "Writing unknown register 0x%08X, 0x%08X.\r\n", address, value);
 		break;
 	}
 }

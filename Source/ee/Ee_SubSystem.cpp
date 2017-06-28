@@ -41,6 +41,8 @@ CSubSystem::CSubSystem(uint8* iopRam, CIopBios& iopBios)
 , m_intc(m_dmac, m_gs)
 , m_ipu(m_intc)
 , m_timer(m_intc)
+, m_MAVU0(PS2::VUMEM0SIZE - 1)
+, m_MAVU1(PS2::VUMEM1SIZE - 1)
 , m_COP_SCU(MIPS_REGSIZE_64)
 , m_COP_FPU(MIPS_REGSIZE_64)
 , m_COP_VU(MIPS_REGSIZE_64)
@@ -312,7 +314,6 @@ void CSubSystem::CountTicks(int ticks)
 			m_sif.ProcessPackets();
 		}
 	}
-	CheckPendingInterrupts();
 	m_EE.m_State.nCOP0[CCOP_SCU::COUNT] += ticks;
 	m_timer.Count(ticks);
 	if(m_EE.m_State.cop0_pccr & 0x80000000)
@@ -329,10 +330,12 @@ void CSubSystem::CountTicks(int ticks)
 			m_EE.m_State.cop0_pcr[1] += ticks;
 		}
 	}
+	CheckPendingInterrupts();
 }
 
 void CSubSystem::NotifyVBlankStart()
 {
+	m_timer.NotifyVBlankStart();
 	m_intc.AssertLine(CINTC::INTC_LINE_VBLANK_START);
 	if(m_os->CheckVBlankFlag())
 	{
@@ -344,6 +347,7 @@ void CSubSystem::NotifyVBlankStart()
 
 void CSubSystem::NotifyVBlankEnd()
 {
+	m_timer.NotifyVBlankEnd();
 	m_intc.AssertLine(CINTC::INTC_LINE_VBLANK_END);
 }
 
@@ -435,7 +439,7 @@ uint32 CSubSystem::IOPortReadHandler(uint32 nAddress)
 	}
 	else
 	{
-		printf("PS2VM: Read an unhandled IO port (0x%0.8X).\r\n", nAddress);
+		printf("PS2VM: Read an unhandled IO port (0x%08X).\r\n", nAddress);
 	}
 
 	if((nAddress == CINTC::INTC_STAT) || (nAddress == CGSHandler::GS_CSR))
@@ -523,13 +527,13 @@ uint32 CSubSystem::IOPortWriteHandler(uint32 nAddress, uint32 nData)
 	}
 	else
 	{
-		printf("PS2VM: Wrote to an unhandled IO port (0x%0.8X, 0x%0.8X, PC: 0x%0.8X).\r\n", nAddress, nData, m_EE.m_State.nPC);
+		printf("PS2VM: Wrote to an unhandled IO port (0x%08X, 0x%08X, PC: 0x%08X).\r\n", nAddress, nData, m_EE.m_State.nPC);
 	}
 
 	if(
 		m_intc.IsInterruptPending() && 
 		(m_EE.m_State.nHasException == MIPS_EXCEPTION_NONE) &&
-		((m_EE.m_State.nCOP0[CCOP_SCU::STATUS] & INTERRUPTS_ENABLED_MASK) != INTERRUPTS_ENABLED_MASK)
+		((m_EE.m_State.nCOP0[CCOP_SCU::STATUS] & INTERRUPTS_ENABLED_MASK) == INTERRUPTS_ENABLED_MASK)
 		)
 	{
 		m_EE.m_State.nHasException = MIPS_EXCEPTION_CHECKPENDINGINT;
@@ -554,7 +558,7 @@ uint32 CSubSystem::Vu0IoPortReadHandler(uint32 address)
 		result = m_vpu0->GetVif().GetITOP();
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled VU0 IO port (0x%0.8X).\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled VU0 IO port (0x%08X).\r\n", address);
 		break;
 	}
 	return result;
@@ -565,7 +569,7 @@ uint32 CSubSystem::Vu0IoPortWriteHandler(uint32 address, uint32 value)
 	switch(address)
 	{
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Wrote an unhandled VU0 IO port (0x%0.8X, 0x%0.8X).\r\n", 
+		CLog::GetInstance().Print(LOG_NAME, "Wrote an unhandled VU0 IO port (0x%08X, 0x%08X).\r\n", 
 								  address, value);
 		break;
 	}
@@ -591,7 +595,7 @@ uint32 CSubSystem::Vu1IoPortReadHandler(uint32 address)
 		result = m_vpu1->GetVif().GetTOP();
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled VU1 IO port (0x%0.8X).\r\n", address);
+		CLog::GetInstance().Print(LOG_NAME, "Read an unhandled VU1 IO port (0x%08X).\r\n", address);
 		break;
 	}
 	return result;
@@ -605,7 +609,7 @@ uint32 CSubSystem::Vu1IoPortWriteHandler(uint32 address, uint32 value)
 		m_vpu1->ProcessXgKick(value);
 		break;
 	default:
-		CLog::GetInstance().Print(LOG_NAME, "Wrote an unhandled VU1 IO port (0x%0.8X, 0x%0.8X).\r\n", 
+		CLog::GetInstance().Print(LOG_NAME, "Wrote an unhandled VU1 IO port (0x%08X, 0x%08X).\r\n", 
 								  address, value);
 		break;
 	}

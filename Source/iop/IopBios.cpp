@@ -287,6 +287,7 @@ void CIopBios::SaveState(Framework::CZipArchiveWriter& archive)
 
 	m_sifCmd->SaveState(archive);
 	m_cdvdman->SaveState(archive);
+	m_loadcore->SaveState(archive);
 #ifdef _IOP_EMULATE_MODULES
 	m_fileIo->SaveState(archive);
 #endif
@@ -323,6 +324,7 @@ void CIopBios::LoadState(Framework::CZipArchiveReader& archive)
 
 	m_sifCmd->LoadState(archive);
 	m_cdvdman->LoadState(archive);
+	m_loadcore->LoadState(archive);
 #ifdef _IOP_EMULATE_MODULES
 	m_fileIo->LoadState(archive);
 #endif
@@ -728,6 +730,7 @@ void CIopBios::ProcessModuleReset(const std::string& imagePath)
 	bool found = TryGetImageVersionFromPath(imagePath, &imageVersion);
 	if(!found) found = TryGetImageVersionFromContents(imagePath, &imageVersion);
 	assert(found);
+	m_loadcore->SetModuleVersion(imageVersion);
 #ifdef _IOP_EMULATE_MODULES
 	m_fileIo->SetModuleVersion(imageVersion);
 #endif
@@ -834,7 +837,7 @@ int32 CIopBios::GetCurrentThreadIdRaw() const
 uint32 CIopBios::CreateThread(uint32 threadProc, uint32 priority, uint32 stackSize, uint32 optionData, uint32 attributes)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: CreateThread(threadProc = 0x%0.8X, priority = %d, stackSize = 0x%0.8X);\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "%d: CreateThread(threadProc = 0x%08X, priority = %d, stackSize = 0x%08X);\r\n", 
 		m_currentThreadId.Get(), threadProc, priority, stackSize);
 #endif
 
@@ -925,7 +928,7 @@ int32 CIopBios::DeleteThread(uint32 threadId)
 int32 CIopBios::StartThread(uint32 threadId, uint32 param)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%i: StartThread(threadId = %i, param = 0x%0.8X);\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "%i: StartThread(threadId = %i, param = 0x%08X);\r\n", 
 		m_currentThreadId.Get(), threadId, param);
 #endif
 
@@ -959,7 +962,7 @@ int32 CIopBios::StartThread(uint32 threadId, uint32 param)
 int32 CIopBios::StartThreadArgs(uint32 threadId, uint32 args, uint32 argpPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: StartThreadArgs(threadId = %d, args = %d, argp = 0x%0.8X);\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "%d: StartThreadArgs(threadId = %d, args = %d, argp = 0x%08X);\r\n", 
 		m_currentThreadId.Get(), threadId, args, argpPtr);
 #endif
 
@@ -1178,7 +1181,7 @@ int32 CIopBios::ChangeThreadPriority(uint32 threadId, uint32 newPrio)
 uint32 CIopBios::ReferThreadStatus(uint32 threadId, uint32 statusPtr, bool inInterrupt)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: ReferThreadStatus(threadId = %d, statusPtr = 0x%0.8X, inInterrupt = %d);\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "%d: ReferThreadStatus(threadId = %d, statusPtr = 0x%08X, inInterrupt = %d);\r\n", 
 		m_currentThreadId.Get(), threadId, statusPtr, inInterrupt);
 #endif
 
@@ -1332,6 +1335,49 @@ int32 CIopBios::CancelWakeupThread(uint32 threadId, bool inInterrupt)
 	return result;
 }
 
+int32 CIopBios::ReleaseWaitThread(uint32 threadId, bool inInterrupt)
+{
+#ifdef _DEBUG
+	CLog::GetInstance().Print(LOGNAME, "%d: ReleaseWaitThread(threadId = %d);\r\n", 
+		m_currentThreadId.Get(), threadId);
+#endif
+
+	if(threadId == 0)
+	{
+		threadId = m_currentThreadId;
+	}
+
+	if(threadId == m_currentThreadId)
+	{
+		return KERNEL_RESULT_ERROR_ILLEGAL_THID;
+	}
+
+	auto thread = GetThread(threadId);
+	if(!thread)
+	{
+		return KERNEL_RESULT_ERROR_UNKNOWN_THID;
+	}
+
+	if(
+		(thread->status == THREAD_STATUS_RUNNING) ||
+		(thread->status == THREAD_STATUS_DORMANT)
+		)
+	{
+		return KERNEL_RESULT_ERROR_NOT_WAIT;
+	}
+
+	assert(thread->status == THREAD_STATUS_SLEEPING);
+
+	thread->status = THREAD_STATUS_RUNNING;
+	LinkThread(threadId);
+	if(!inInterrupt)
+	{
+		m_rescheduleNeeded = true;
+	}
+
+	return KERNEL_RESULT_OK;
+}
+
 void CIopBios::SleepThreadTillVBlankStart()
 {
 	THREAD* thread = GetThread(m_currentThreadId);
@@ -1378,17 +1424,18 @@ void CIopBios::SaveThreadContext(uint32 threadId)
 
 void CIopBios::LinkThread(uint32 threadId)
 {
-	THREAD* thread = m_threads[threadId];
-	uint32* nextThreadId = &ThreadLinkHead();
+	auto thread = m_threads[threadId];
+	auto nextThreadId = &ThreadLinkHead();
 	while(1)
 	{
+		assert((*nextThreadId) < MAX_THREAD);
 		if((*nextThreadId) == 0)
 		{
 			(*nextThreadId) = threadId;
 			thread->nextThreadId = 0;
 			break;
 		}
-		THREAD* currentThread = m_threads[(*nextThreadId)];
+		auto currentThread = m_threads[(*nextThreadId)];
 		if(currentThread->priority > thread->priority)
 		{
 			thread->nextThreadId = (*nextThreadId);
@@ -1667,7 +1714,7 @@ uint32 CIopBios::PollSemaphore(uint32 semaphoreId)
 
 uint32 CIopBios::ReferSemaphoreStatus(uint32 semaphoreId, uint32 statusPtr)
 {
-	CLog::GetInstance().Print(LOGNAME, "%d: ReferSemaphoreStatus(semaphoreId = %d, statusPtr = 0x%0.8X);\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "%d: ReferSemaphoreStatus(semaphoreId = %d, statusPtr = 0x%08X);\r\n", 
 		m_currentThreadId.Get(), semaphoreId, statusPtr);
 
 	auto semaphore = m_semaphores[semaphoreId];
@@ -1690,7 +1737,7 @@ uint32 CIopBios::ReferSemaphoreStatus(uint32 semaphoreId, uint32 statusPtr)
 uint32 CIopBios::CreateEventFlag(uint32 attributes, uint32 options, uint32 initValue)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: CreateEventFlag(attr = 0x%0.8X, opt = 0x%0.8X, initValue = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: CreateEventFlag(attr = 0x%08X, opt = 0x%08X, initValue = 0x%08X);\r\n",
 		m_currentThreadId.Get(), attributes, options, initValue);
 #endif
 
@@ -1734,7 +1781,7 @@ uint32 CIopBios::DeleteEventFlag(uint32 eventId)
 uint32 CIopBios::SetEventFlag(uint32 eventId, uint32 value, bool inInterrupt)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: SetEventFlag(eventId = %d, value = 0x%0.8X, inInterrupt = %d);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: SetEventFlag(eventId = %d, value = 0x%08X, inInterrupt = %d);\r\n",
 		m_currentThreadId.Get(), eventId, value, inInterrupt);
 #endif
 
@@ -1777,7 +1824,7 @@ uint32 CIopBios::SetEventFlag(uint32 eventId, uint32 value, bool inInterrupt)
 uint32 CIopBios::ClearEventFlag(uint32 eventId, uint32 value)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: ClearEventFlag(eventId = %d, value = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: ClearEventFlag(eventId = %d, value = 0x%08X);\r\n",
 		m_currentThreadId.Get(), eventId, value);
 #endif
 
@@ -1795,7 +1842,7 @@ uint32 CIopBios::ClearEventFlag(uint32 eventId, uint32 value)
 uint32 CIopBios::WaitEventFlag(uint32 eventId, uint32 value, uint32 mode, uint32 resultPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: WaitEventFlag(eventId = %d, value = 0x%0.8X, mode = 0x%0.2X, resultPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: WaitEventFlag(eventId = %d, value = 0x%08X, mode = 0x%02X, resultPtr = 0x%08X);\r\n",
 		m_currentThreadId.Get(), eventId, value, mode, resultPtr);
 #endif
 
@@ -1825,7 +1872,7 @@ uint32 CIopBios::WaitEventFlag(uint32 eventId, uint32 value, uint32 mode, uint32
 uint32 CIopBios::PollEventFlag(uint32 eventId, uint32 value, uint32 mode, uint32 resultPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: PollEventFlag(eventId = %d, value = 0x%0.8X, mode = 0x%0.2X, resultPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: PollEventFlag(eventId = %d, value = 0x%08X, mode = 0x%02X, resultPtr = 0x%08X);\r\n",
 		m_currentThreadId.Get(), eventId, value, mode, resultPtr);
 #endif
 
@@ -1853,7 +1900,7 @@ uint32 CIopBios::PollEventFlag(uint32 eventId, uint32 value, uint32 mode, uint32
 uint32 CIopBios::ReferEventFlagStatus(uint32 eventId, uint32 infoPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: ReferEventFlagStatus(eventId = %d, infoPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: ReferEventFlagStatus(eventId = %d, infoPtr = 0x%08X);\r\n",
 		m_currentThreadId.Get(), eventId, infoPtr);
 #endif
 
@@ -1950,7 +1997,7 @@ uint32 CIopBios::DeleteMessageBox(uint32 boxId)
 uint32 CIopBios::SendMessageBox(uint32 boxId, uint32 messagePtr, bool inInterrupt)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: SendMessageBox(boxId = %d, messagePtr = 0x%0.8X, inInterrupt = %d);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: SendMessageBox(boxId = %d, messagePtr = 0x%08X, inInterrupt = %d);\r\n",
 		m_currentThreadId.Get(), boxId, messagePtr, inInterrupt);
 #endif
 
@@ -2009,7 +2056,7 @@ uint32 CIopBios::SendMessageBox(uint32 boxId, uint32 messagePtr, bool inInterrup
 uint32 CIopBios::ReceiveMessageBox(uint32 messagePtr, uint32 boxId)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: ReceiveMessageBox(messagePtr = 0x%0.8X, boxId = %d);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: ReceiveMessageBox(messagePtr = 0x%08X, boxId = %d);\r\n",
 		m_currentThreadId.Get(), messagePtr, boxId);
 #endif
 
@@ -2047,7 +2094,7 @@ uint32 CIopBios::ReceiveMessageBox(uint32 messagePtr, uint32 boxId)
 uint32 CIopBios::PollMessageBox(uint32 messagePtr, uint32 boxId)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: PollMessageBox(messagePtr = 0x%0.8X, boxId = %d);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: PollMessageBox(messagePtr = 0x%08X, boxId = %d);\r\n",
 		m_currentThreadId.Get(), messagePtr, boxId);
 #endif
 
@@ -2076,7 +2123,7 @@ uint32 CIopBios::PollMessageBox(uint32 messagePtr, uint32 boxId)
 uint32 CIopBios::ReferMessageBoxStatus(uint32 boxId, uint32 statusPtr)
 {
 #ifdef _DEBUG
-	CLog::GetInstance().Print(LOGNAME, "%d: ReferMessageBox(boxId = %d, statusPtr = 0x%0.8X);\r\n",
+	CLog::GetInstance().Print(LOGNAME, "%d: ReferMessageBox(boxId = %d, statusPtr = 0x%08X);\r\n",
 		m_currentThreadId.Get(), boxId, statusPtr);
 #endif
 
@@ -2545,7 +2592,7 @@ void CIopBios::HandleException()
 		else
 		{
 #ifdef _DEBUG
-			CLog::GetInstance().Print(LOGNAME, "%0.8X: Trying to call a function from non-existing module (%s, %d).\r\n", 
+			CLog::GetInstance().Print(LOGNAME, "%08X: Trying to call a function from non-existing module (%s, %d).\r\n", 
 				m_cpu.m_State.nPC, moduleName.c_str(), functionId);
 #endif
 		}
@@ -2757,8 +2804,26 @@ unsigned int CIopBios::GetElfProgramToLoad(CELF& elf)
 
 void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 {
+	//The IOP's ELF loader doesn't seem to follow the ELF standard completely
+	//when it comes to relocations. The relocation function seems to use the
+	//.text section's base address for all adjustments. Using information from the
+	//section headers (either the section's start address or info field) will yield
+	//an incorrect result in some cases (ex.: RWA.IRA module from Burnout 3 and Burnout Revenge)
+
 	const auto& header = elf.GetHeader();
+	uint32 maxRelocAddress = 
+		[&]()
+		{
+			auto programHeader = elf.GetProgram(1);
+			if(!programHeader) return UINT32_MAX;
+			if(programHeader->nType != CELF::PT_LOAD) return UINT32_MAX;
+			return programHeader->nMemorySize;
+		}();
 	bool isVersion2 = (header.nType == ET_SCE_IOPRELEXEC2);
+	auto textSectionIndex = elf.FindSectionIndex(".text");
+	assert(textSectionIndex != 0);
+	auto textSection = elf.GetSection(textSectionIndex);
+	auto textSectionData = reinterpret_cast<uint8*>(const_cast<void*>(elf.GetSectionData(textSectionIndex)));
 	for(unsigned int i = 0; i < header.nSectHeaderCount; i++)
 	{
 		const auto* sectionHeader = elf.GetSection(i);
@@ -2766,20 +2831,17 @@ void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 		{
 			uint32 lastHi16 = -1;
 			uint32 instructionHi16 = -1;
-			unsigned int linkedSection = GetRelocationLinkedSectionIndex(elf, i);
 			unsigned int recordCount = sectionHeader->nSize / 8;
-			auto relocatedSection = elf.GetSection(linkedSection);
 			auto relocationRecord = reinterpret_cast<const uint32*>(elf.GetSectionData(i));
-			auto relocatedSectionData = reinterpret_cast<uint8*>(const_cast<void*>(elf.GetSectionData(linkedSection)));
-			if(relocatedSection == nullptr || relocationRecord == nullptr || relocatedSectionData == nullptr) continue;
-			uint32 sectionBase = relocatedSection->nStart;
+			uint32 sectionBase = 0;
 			for(unsigned int record = 0; record < recordCount; record++)
 			{
 				uint32 relocationAddress = relocationRecord[0] - sectionBase;
 				uint32 relocationType = relocationRecord[1] & 0xFF;
-				if(relocationAddress < relocatedSection->nSize) 
+				assert(relocationAddress < maxRelocAddress);
+				if(relocationAddress < maxRelocAddress)
 				{
-					uint32& instruction = *reinterpret_cast<uint32*>(&relocatedSectionData[relocationAddress]);
+					uint32& instruction = *reinterpret_cast<uint32*>(&textSectionData[relocationAddress]);
 					switch(relocationType)
 					{
 					case CELF::R_MIPS_32:
@@ -2800,7 +2862,7 @@ void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 							assert((record + 1) != recordCount);
 							assert((relocationRecord[3] & 0xFF) == CELF::R_MIPS_LO16);
 							uint32 nextRelocationAddress = relocationRecord[2] - sectionBase;
-							uint32 nextInstruction = *reinterpret_cast<uint32*>(&relocatedSectionData[nextRelocationAddress]);
+							uint32 nextInstruction = *reinterpret_cast<uint32*>(&textSectionData[nextRelocationAddress]);
 							uint32 offset = static_cast<int16>(nextInstruction) + (instruction << 16);
 							offset += baseAddress;
 							if(offset & 0x8000) offset += 0x10000;
@@ -2831,7 +2893,7 @@ void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 							instruction &= ~0xFFFF;
 							instruction |= offset & 0xFFFF;
 
-							uint32& prevInstruction = *reinterpret_cast<uint32*>(&relocatedSectionData[lastHi16]);
+							uint32& prevInstruction = *reinterpret_cast<uint32*>(&textSectionData[lastHi16]);
 							prevInstruction &= ~0xFFFF;
 							if(offset & 0x8000) offset += 0x10000;
 							prevInstruction |= offset >> 16;
@@ -2848,7 +2910,7 @@ void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 							offset >>= 16;
 							while(1)
 							{
-								uint32& prevInstruction = *reinterpret_cast<uint32*>(&relocatedSectionData[relocationAddress]);
+								uint32& prevInstruction = *reinterpret_cast<uint32*>(&textSectionData[relocationAddress]);
 
 								int32 mhiOffset = static_cast<int16>(prevInstruction);
 								mhiOffset *= 4;
@@ -2870,30 +2932,6 @@ void CIopBios::RelocateElf(CELF& elf, uint32 baseAddress)
 			}
 		}
 	}
-}
-
-uint32 CIopBios::GetRelocationLinkedSectionIndex(CELF& module, uint32 relocationSectionIndex)
-{
-	//The IOP's ELF loader doesn't seem to take in account a relocation table section's
-	//'info' field and only seems to use the .text section's base address for all adjustments
-	//Due to this, modules that are broken (ie.: Burnout 3's RWA.IRX) can be loaded properly
-	
-	//The approach that we use to apply relocations here requires us to have the relocated
-	//section's index. The means used to figure that index out might not work for all cases
-
-	auto relocationSection = module.GetSection(relocationSectionIndex);
-	auto relocationSectionName = module.GetSectionName(relocationSectionIndex);
-	if(relocationSectionName != nullptr)
-	{
-		//If relocation section name starts with '.rel'.
-		if(strstr(relocationSectionName, ".rel") == relocationSectionName)
-		{
-			auto relocatedSectionIndex = module.FindSectionIndex(relocationSectionName + 4);
-			if(relocatedSectionIndex != 0) return relocatedSectionIndex;
-		}
-	}
-
-	return relocationSection->nInfo;
 }
 
 void CIopBios::TriggerCallback(uint32 address, uint32 arg0, uint32 arg1)
@@ -3097,7 +3135,7 @@ void CIopBios::PrepareModuleDebugInfo(CELF& elf, const ExecutableRange& moduleRa
 				else
 				{
 					char functionNameTemp[256];
-					sprintf(functionNameTemp, "unknown_%0.4X", functionId);
+					sprintf(functionNameTemp, "unknown_%04X", functionId);
 					functionName = functionNameTemp;
 				}
 				if(m_cpu.m_Functions.Find(address) == NULL)
@@ -3138,7 +3176,7 @@ void CIopBios::PrepareModuleDebugInfo(CELF& elf, const ExecutableRange& moduleRa
 		m_cpu.m_Functions.OnTagListChange();
 	}
 
-	CLog::GetInstance().Print(LOGNAME, "Loaded IOP module '%s' @ 0x%0.8X.\r\n", 
+	CLog::GetInstance().Print(LOGNAME, "Loaded IOP module '%s' @ 0x%08X.\r\n", 
 		modulePath.c_str(), moduleRange.first);
 }
 

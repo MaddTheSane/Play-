@@ -41,11 +41,13 @@ public:
 	static_assert(sizeof(TAG) == 0x10, "Size of TAG must be 16 bytes.");
 
 					CGIF(CGSHandler*&, uint8*, uint8*);
-	virtual			~CGIF();
+	virtual			~CGIF() = default;
 
 	void			Reset();
 	uint32			ReceiveDMA(uint32, uint32, uint32, bool);
-	uint32			ProcessPacket(uint8*, uint32, uint32, const CGsPacketMetadata&);
+
+	uint32			ProcessSinglePacket(const uint8*, uint32, uint32, const CGsPacketMetadata&);
+	uint32			ProcessMultiplePackets(const uint8*, uint32, uint32, const CGsPacketMetadata&);
 
 	uint32			GetRegister(uint32);
 	void			SetRegister(uint32, uint32);
@@ -58,14 +60,22 @@ public:
 	void			SaveState(Framework::CZipArchiveWriter&);
 
 private:
-	uint32			ProcessPacked(CGSHandler::RegisterWriteList&, uint8*, uint32, uint32);
-	uint32			ProcessRegList(CGSHandler::RegisterWriteList&, uint8*, uint32, uint32);
-	uint32			ProcessImage(uint8*, uint32, uint32);
+	enum SIGNAL_STATE
+	{
+		SIGNAL_STATE_NONE,
+		SIGNAL_STATE_ENCOUNTERED,
+		SIGNAL_STATE_PENDING,
+	};
+
+	uint32			ProcessPacked(CGSHandler::RegisterWriteList&, const uint8*, uint32, uint32);
+	uint32			ProcessRegList(CGSHandler::RegisterWriteList&, const uint8*, uint32, uint32);
+	uint32			ProcessImage(const uint8*, uint32, uint32);
 
 	void			DisassembleGet(uint32);
 	void			DisassembleSet(uint32, uint32);
 
 	bool			m_path3Masked = false;
+	uint32			m_activePath = 0;
 
 	uint16			m_loops;
 	uint8			m_cmd;
@@ -74,6 +84,7 @@ private:
 	uint64			m_regList;
 	bool			m_eop;
 	uint32			m_qtemp;
+	SIGNAL_STATE	m_signalState = SIGNAL_STATE_NONE;
 	uint8*			m_ram;
 	uint8*			m_spr;
 	CGSHandler*&	m_gs;

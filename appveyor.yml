@@ -1,26 +1,77 @@
 version: '{build}'
-pull_requests:
-  do_not_increment_build_number: true
-configuration:
-- Debug
-- Release
-platform: x64
-before_build:
+environment:
+  CONFIG_TYPE: Release
+  matrix:
+  - BUILD_TYPE: Visual Studio 14 2015
+    INSTALLER_SCRIPT: installer32.nsi
+  - BUILD_TYPE: Visual Studio 14 2015 Win64
+    INSTALLER_SCRIPT: installer64.nsi
+
+build_script:
 - cmd: >-
-    git clone -q https://github.com/jpd002/Play-Build.git C:\Projects\Play-Build
+    set REPO_COMMIT_SHORT=%APPVEYOR_REPO_COMMIT:~0,8%
 
-    cd C:\Projects\Play-Build
+    appveyor SetVariable -Name REPO_COMMIT_SHORT -Value %REPO_COMMIT_SHORT%
 
+    cd ..
+    
+    rename Play PlaySource
+    
+    mkdir Play
+    
+    cd Play
+    
+    git clone -q https://github.com/jpd002/Play-Build.git Play-Build
+    
+    cd Play-Build
+    
     git submodule update -q --init --recursive
-
+    
     git submodule foreach -q "git checkout -q master"
-
+    
+    cd Dependencies
+    
+    git submodule update --init
+    
+    cd ..
+    
     rd /S /Q Play
+    
+    move ..\..\PlaySource Play
+    
+    cd Play\build_cmake
+    
+    mkdir build
+    
+    cd build
+    
+    cmake .. -G"%BUILD_TYPE%"
+    
+    cmake --build . --config %CONFIG_TYPE%
+    
+    cd ..
+    
+    cd ..
+    
+    "C:\Program Files (x86)\NSIS\makensis.exe" ./installer_win32/%INSTALLER_SCRIPT%
+    
+    cd ..
+    
+    cd ..
+    
+    mkdir %REPO_COMMIT_SHORT%
+    
+    move Play-Build\Play\installer_win32\*.exe %REPO_COMMIT_SHORT%
 
-    move C:\Projects\Play Play
-
-    nuget.exe restore -verbosity quiet C:\Projects\Play-Build\Play\build_win32\Play.sln
-build:
-  project: C:\Projects\Play-Build\Play\build_win32\Play.sln
-  parallel: true
-  verbosity: minimal
+artifacts:
+- path: $(REPO_COMMIT_SHORT)\*.exe
+  name: Binaries
+deploy:
+- provider: S3
+  access_key_id: AKIAJGVKEDYESR2BIP7Q
+  secret_access_key:
+    secure: JFQy5OF0YXW/H6mcQtfxbd4dAJ+m88p5UwOrazZnfHXecN2M08LklayUlaX/51tI
+  bucket: playbuilds
+  region: us-east-2
+  artifact: Binaries
+  set_public: true

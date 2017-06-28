@@ -29,33 +29,22 @@ public:
 	uint32											GetSelectedItemIndex() const;
 
 protected:
-	virtual long									OnSize(unsigned int, unsigned int, unsigned int) override;
-	virtual long									OnCommand(unsigned short, unsigned short, HWND) override;
-	virtual LRESULT									OnNotify(WPARAM, NMHDR*) override;
+	long											OnSize(unsigned int, unsigned int, unsigned int) override;
+	long											OnCommand(unsigned short, unsigned short, HWND) override;
+	LRESULT											OnNotify(WPARAM, NMHDR*) override;
+	long											OnCopy() override;
 
 private:
 	struct PACKETINFO
 	{
-		PACKETINFO()
-			: cmdIndexStart(0)
-			, treeViewItem(nullptr)
-		{
-
-		}
-
-		uint32		cmdIndexStart;
-		HTREEITEM	treeViewItem;
+		HTREEITEM treeViewItem = nullptr;
+		uint32    cmdIndexStart = 0;
 	};
 
 	struct WRITEINFO
 	{
-		WRITEINFO()
-			: treeViewItem(nullptr)
-		{
-
-		}
-
-		HTREEITEM	treeViewItem;
+		HTREEITEM                 treeViewItem = nullptr;
+		CGSHandler::RegisterWrite registerWrite;
 	};
 
 	uint32											GetItemIndexFromTreeViewItem(TVITEM*) const;
@@ -63,6 +52,7 @@ private:
 	long											OnPacketsTreeViewCustomDraw(NMTVCUSTOMDRAW*);
 	void											OnPacketsTreeViewItemExpanding(NMTREEVIEW*);
 	void											OnPacketsTreeViewSelChanged(NMTREEVIEW*);
+	void											OnPacketsTreeViewKeyDown(const NMTVKEYDOWN*);
 
 	void											GoToWrite(uint32);
 	void											OnPrevDrawKick();

@@ -88,7 +88,7 @@ protected:
 	{
 	public:
 								CFifoStream(uint8*, uint8*);
-		virtual					~CFifoStream();
+		virtual					~CFifoStream() = default;
 
 		void					Reset();
 
@@ -99,6 +99,9 @@ protected:
 		void					Align32();
 		void					SetDmaParams(uint32, uint32, bool);
 		void					SetFifoParams(uint8*, uint32);
+
+		uint8*					GetDirectPointer() const;
+		void					Advance(uint32);
 
 	private:
 		void					SyncBuffer();
@@ -113,6 +116,7 @@ protected:
 
 		uint128					m_buffer;
 		uint32					m_bufferPosition = BUFFERSIZE;
+		uint32					m_startAddress = 0;
 		uint32					m_nextAddress = 0;
 		uint32					m_endAddress = 0;
 		bool					m_tagIncluded = false;

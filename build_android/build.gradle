@@ -1,37 +1,28 @@
 apply plugin: 'com.android.application'
-import org.apache.tools.ant.taskdefs.condition.Os
 
 buildscript {
 	repositories {
 		mavenCentral()
+		jcenter()
 	}
-	
+
 	dependencies {
-		classpath 'com.android.tools.build:gradle:1.5.0'
+		classpath 'com.android.tools.build:gradle:2.3.0'
 	}
 }
 
-def getNdkBuildPath() {
-	if(Os.isFamily(Os.FAMILY_WINDOWS)) {
-		return System.getenv('ANDROID_NDK') + '\\ndk-build.cmd'
-	} else {
-		return System.getenv('ANDROID_NDK') + '/ndk-build'
-	}
+project.ext {
+	keyStorePropFile = rootProject.file('keystore.properties')
+	signingEnabled = keyStorePropFile.exists()
 }
 
 project.afterEvaluate {
-	compileDebugNdk.dependsOn 'ndkBuildDebug'
-	compileReleaseNdk.dependsOn 'ndkBuildRelease'
-	clean.dependsOn 'ndkCleanDebug'
-	clean.dependsOn 'ndkCleanRelease'
 	preBuild.dependsOn 'copyPatchFile'
-	
-	def propsFile = rootProject.file('keystore.properties')
+
 	def configName = 'release'
-	
-	if(propsFile.exists() && android.signingConfigs.hasProperty(configName)) {
+	if(project.ext.signingEnabled && android.signingConfigs.hasProperty(configName)) {
 		def props = new Properties()
-		props.load(new FileInputStream(propsFile))
+		props.load(new FileInputStream(project.ext.keyStorePropFile))
 		android.signingConfigs[configName].storeFile = file(props['storeFile'])
 		android.signingConfigs[configName].storePassword = props['storePassword']
 		android.signingConfigs[configName].keyAlias = props['keyAlias']
@@ -43,23 +34,35 @@ android {
 	repositories {
 		mavenCentral()
 	}
-	
+
 	compileSdkVersion 'android-24'
-	buildToolsVersion '24.0.3'
-	
+	buildToolsVersion '25.0.0'
+
 	defaultConfig {
-		versionCode 36
+		versionCode 38
 		versionName '0.30'
 		minSdkVersion 19
 		targetSdkVersion 24
+		externalNativeBuild {
+			cmake {
+				arguments "-DANDROID_ARM_NEON=TRUE", "-DANDROID_TOOLCHAIN=clang",
+						"-DANDROID_CPP_FEATURES=exceptions rtti", "-DANDROID_STL=c++_static"
+				cppFlags "-frtti"
+				targets "Play"
+			}
+			ndk {
+				abiFilters 'armeabi-v7a', 'x86', 'x86_64', 'arm64-v8a'
+			}
+
+		}
 	}
-	
+
 	dependencies {
 		compile 'com.android.support:appcompat-v7:23.3.0'
 		compile 'org.apache.commons:commons-lang3:3.4'
 		compile 'commons-io:commons-io:2.5'
 	}
-	
+
 	signingConfigs {
 		release {
 			storeFile file('store.keystore')
@@ -68,47 +71,41 @@ android {
 			keyPassword ''
 		}
 	}
-	
+
 	buildTypes {
 		debug {
 			debuggable true
 			jniDebuggable true
+			buildConfigField "java.util.Date", "buildTime", "new java.util.Date(" + System.currentTimeMillis() + "L)"
 		}
 		release {
 			proguardFile getDefaultProguardFile('proguard-android.txt')
-			signingConfig signingConfigs.release
+			if(project.ext.signingEnabled) {
+				signingConfig signingConfigs.release
+			}
+			buildConfigField "java.util.Date", "buildTime", "new java.util.Date(" + System.currentTimeMillis() + "L)"
 		}
 	}
-	
+
 	packagingOptions {
 		exclude 'META-INF/LICENSE.txt'
 		exclude 'META-INF/NOTICE.txt'
 	}
-	
+
+	task copyPatchFile(type: Copy) {
+		from '../patches.xml'
+		into 'src/main/assets'
+	}
+
 	sourceSets.main {
 		java.srcDirs = [ '../Source/ui_android/java' ]
 		jni.srcDirs = []
 		jniLibs.srcDir 'src/main/libs'
 	}
-	
-	task copyPatchFile(type: Copy) {
-		from '../patches.xml'
-		into 'src/main/assets'
-	}
-	
-	task ndkBuildDebug(type: Exec) {
-		commandLine getNdkBuildPath(), '-C', file('src/main').absolutePath, '-j', Runtime.runtime.availableProcessors(), 'NDK_DEBUG=1'
-	}
-	
-	task ndkBuildRelease(type: Exec) {
-		commandLine getNdkBuildPath(), '-C', file('src/main').absolutePath, '-j', Runtime.runtime.availableProcessors(), 'NDK_DEBUG=0'
-	}
-	
-	task ndkCleanDebug(type: Exec) {
-		commandLine getNdkBuildPath(), '-C', file('src/main').absolutePath, 'clean', 'NDK_DEBUG=1'
-	}
-	
-	task ndkCleanRelease(type: Exec) {
-		commandLine getNdkBuildPath(), '-C', file('src/main').absolutePath, 'clean', 'NDK_DEBUG=0'
+
+	externalNativeBuild {
+		cmake {
+			path '../build_cmake/CMakeLists.txt'
+		}
 	}
 }
