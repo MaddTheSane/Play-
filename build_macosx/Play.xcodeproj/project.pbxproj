@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		55128E991F0452E6005666AC /* OpticalMedia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 55128E971F0452E6005666AC /* OpticalMedia.cpp */; };
+		55128E9C1F045425005666AC /* ScreenShotUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 55128E9A1F045425005666AC /* ScreenShotUtils.cpp */; };
+		55128E9F1F0454C0005666AC /* OpticalMediaDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 55128E9D1F0454C0005666AC /* OpticalMediaDevice.cpp */; };
 		55931CA31DFD46FB00948721 /* GamePadSettingsViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 55931CA11DFD46FB00948721 /* GamePadSettingsViewController.mm */; };
 		55931CA41DFD46FB00948721 /* GamePadSettingsView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 55931CA21DFD46FB00948721 /* GamePadSettingsView.xib */; };
 		700DF99515DF699000818F3B /* patches.xml in Resources */ = {isa = PBXBuildFile; fileRef = 700DF99415DF699000818F3B /* patches.xml */; };
@@ -65,7 +68,6 @@
 		70684A01151E896900C9574F /* Iop_Timrman.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 706849D6151E896900C9574F /* Iop_Timrman.cpp */; };
 		70684A02151E896900C9574F /* Iop_Vblank.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 706849D8151E896900C9574F /* Iop_Vblank.cpp */; };
 		70684A03151E896900C9574F /* IopBios.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 706849DA151E896900C9574F /* IopBios.cpp */; };
-		70684A04151E896900C9574F /* IsoDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 706849DC151E896900C9574F /* IsoDevice.cpp */; };
 		70684A1D151E89E200C9574F /* ApplicationDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 70684A07151E89E200C9574F /* ApplicationDelegate.mm */; };
 		70684A20151E89E200C9574F /* Globals.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 70684A0C151E89E200C9574F /* Globals.cpp */; };
 		70684A21151E89E200C9574F /* GSH_OpenGLMacOSX.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 70684A0E151E89E200C9574F /* GSH_OpenGLMacOSX.cpp */; };
@@ -209,6 +211,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		55128E971F0452E6005666AC /* OpticalMedia.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = OpticalMedia.cpp; sourceTree = "<group>"; };
+		55128E981F0452E6005666AC /* OpticalMedia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpticalMedia.h; sourceTree = "<group>"; };
+		55128E9A1F045425005666AC /* ScreenShotUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScreenShotUtils.cpp; sourceTree = "<group>"; };
+		55128E9B1F045425005666AC /* ScreenShotUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScreenShotUtils.h; sourceTree = "<group>"; };
+		55128E9D1F0454C0005666AC /* OpticalMediaDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = OpticalMediaDevice.cpp; sourceTree = "<group>"; };
+		55128E9E1F0454C0005666AC /* OpticalMediaDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpticalMediaDevice.h; sourceTree = "<group>"; };
 		55931CA01DFD46FB00948721 /* GamePadSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GamePadSettingsViewController.h; sourceTree = "<group>"; };
 		55931CA11DFD46FB00948721 /* GamePadSettingsViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = GamePadSettingsViewController.mm; sourceTree = "<group>"; };
 		55931CA21DFD46FB00948721 /* GamePadSettingsView.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = GamePadSettingsView.xib; sourceTree = "<group>"; };
@@ -323,8 +331,6 @@
 		706849D9151E896900C9574F /* Iop_Vblank.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Iop_Vblank.h; sourceTree = "<group>"; };
 		706849DA151E896900C9574F /* IopBios.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IopBios.cpp; sourceTree = "<group>"; };
 		706849DB151E896900C9574F /* IopBios.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IopBios.h; sourceTree = "<group>"; };
-		706849DC151E896900C9574F /* IsoDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IsoDevice.cpp; sourceTree = "<group>"; };
-		706849DD151E896900C9574F /* IsoDevice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IsoDevice.h; sourceTree = "<group>"; };
 		70684A06151E89E200C9574F /* ApplicationDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ApplicationDelegate.h; sourceTree = "<group>"; };
 		70684A07151E89E200C9574F /* ApplicationDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ApplicationDelegate.mm; sourceTree = "<group>"; };
 		70684A0C151E89E200C9574F /* Globals.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Globals.cpp; sourceTree = "<group>"; };
@@ -592,6 +598,8 @@
 		7068498C151E894A00C9574F /* iop */ = {
 			isa = PBXGroup;
 			children = (
+				55128E9D1F0454C0005666AC /* OpticalMediaDevice.cpp */,
+				55128E9E1F0454C0005666AC /* OpticalMediaDevice.h */,
 				7068498D151E896900C9574F /* ArgumentIterator.cpp */,
 				7068498E151E896900C9574F /* ArgumentIterator.h */,
 				7068498F151E896900C9574F /* DirectoryDevice.cpp */,
@@ -684,8 +692,6 @@
 				706849D9151E896900C9574F /* Iop_Vblank.h */,
 				706849DA151E896900C9574F /* IopBios.cpp */,
 				706849DB151E896900C9574F /* IopBios.h */,
-				706849DC151E896900C9574F /* IsoDevice.cpp */,
-				706849DD151E896900C9574F /* IsoDevice.h */,
 			);
 			path = iop;
 			sourceTree = "<group>";
@@ -870,6 +876,8 @@
 		7E4C15901519A8D900357777 /* Play Core */ = {
 			isa = PBXGroup;
 			children = (
+				55128E9A1F045425005666AC /* ScreenShotUtils.cpp */,
+				55128E9B1F045425005666AC /* ScreenShotUtils.h */,
 				7E4C15911519A8FE00357777 /* AppConfig.cpp */,
 				7E4C15921519A8FE00357777 /* AppConfig.h */,
 				7E4C15931519A8FE00357777 /* BasicBlock.cpp */,
@@ -888,6 +896,8 @@
 				70D9F0EC1AFB013400197BBE /* ee */,
 				7E4C15A41519A8FE00357777 /* ELF.cpp */,
 				7E4C15A51519A8FE00357777 /* ELF.h */,
+				55128E971F0452E6005666AC /* OpticalMedia.cpp */,
+				55128E981F0452E6005666AC /* OpticalMedia.h */,
 				7E4C15A61519A8FE00357777 /* ElfFile.cpp */,
 				7E4C15A71519A8FE00357777 /* ElfFile.h */,
 				703093AD17BE5AB1009662A1 /* FrameDump.cpp */,
@@ -1170,6 +1180,7 @@
 				7ECB24441519AC0A00C4BBF8 /* PS2VM.cpp in Sources */,
 				7ECB24451519AC0A00C4BBF8 /* RegisterStateFile.cpp in Sources */,
 				70D9F12C1AFB016900197BBE /* COP_VU_Reflection.cpp in Sources */,
+				55128E9C1F045425005666AC /* ScreenShotUtils.cpp in Sources */,
 				70F407F21E1C8268007DACD1 /* Iop_FileIoHandler2240.cpp in Sources */,
 				70D9F14C1AFB016900197BBE /* VuExecutor.cpp in Sources */,
 				70D9F1311AFB016900197BBE /* EEAssembler.cpp in Sources */,
@@ -1220,12 +1231,14 @@
 				706849F7151E896900C9574F /* Iop_Spu2_Core.cpp in Sources */,
 				706849F8151E896900C9574F /* Iop_Spu2.cpp in Sources */,
 				706849F9151E896900C9574F /* Iop_SpuBase.cpp in Sources */,
+				55128E991F0452E6005666AC /* OpticalMedia.cpp in Sources */,
 				70D9F1361AFB016900197BBE /* IPU_DmVectorTable.cpp in Sources */,
 				70D9F13F1AFB016900197BBE /* MA_VU_Lower.cpp in Sources */,
 				706849FA151E896900C9574F /* Iop_Stdio.cpp in Sources */,
 				706849FB151E896900C9574F /* Iop_SubSystem.cpp in Sources */,
 				706849FC151E896900C9574F /* Iop_Sysclib.cpp in Sources */,
 				706849FD151E896900C9574F /* Iop_Sysmem.cpp in Sources */,
+				55128E9F1F0454C0005666AC /* OpticalMediaDevice.cpp in Sources */,
 				706849FE151E896900C9574F /* Iop_Thbase.cpp in Sources */,
 				70D9F1591AFB018900197BBE /* GSH_Null.cpp in Sources */,
 				70D9F13B1AFB016900197BBE /* IPU_MotionCodeTable.cpp in Sources */,
@@ -1239,7 +1252,6 @@
 				70D9F14E1AFB016900197BBE /* VUShared.cpp in Sources */,
 				70684A03151E896900C9574F /* IopBios.cpp in Sources */,
 				70D9F15B1AFB018900197BBE /* GsPixelFormats.cpp in Sources */,
-				70684A04151E896900C9574F /* IsoDevice.cpp in Sources */,
 				70684A1D151E89E200C9574F /* ApplicationDelegate.mm in Sources */,
 				70D9F14D1AFB016900197BBE /* VUShared_Reflection.cpp in Sources */,
 				70684A20151E89E200C9574F /* Globals.cpp in Sources */,
@@ -1391,6 +1403,7 @@
 			baseConfigurationReference = 70320D1B1A99EAC4001E9C4B /* GeneralSettingsDebug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				INFOPLIST_FILE = ../Source/ui_macosx/Info.plist;
 				INFOPLIST_PREPROCESS = YES;
@@ -1405,6 +1418,7 @@
 			baseConfigurationReference = 70320D1C1A99EAC4001E9C4B /* GeneralSettingsRelease.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				INFOPLIST_FILE = ../Source/ui_macosx/Info.plist;
 				INFOPLIST_PREPROCESS = YES;
